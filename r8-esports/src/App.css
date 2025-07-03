@@ -1,3 +1,16 @@
+/* Add this to use Inter font. Make sure to include the Google Fonts link in your public/index.html:
+   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+*/
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* You can also apply Inter to main containers if needed:
+.main-container, .App {
+  font-family: 'Inter', sans-serif;
+}
+*/
+
 .App {
   text-align: center;
 }
@@ -35,4 +48,34 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Remove default dialog background and border */
+dialog.modal {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Remove default outline on focus for dialog */
+dialog:focus-visible {
+  outline: none;
+}
+
+/* Hide native date input icon in Chrome, Safari, Edge, Opera */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+
+/* Hide native date input icon in Firefox */
+input[type="date"]::-moz-calendar-picker-indicator {
+  opacity: 0;
+  display: none;
+}
+
+/* Hide native date input icon in Edge (old) */
+input[type="date"]::-ms-input-placeholder {
+  color: transparent;
 }
