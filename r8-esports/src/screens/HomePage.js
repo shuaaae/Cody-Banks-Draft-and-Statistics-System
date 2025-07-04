@@ -64,6 +64,11 @@ export default function HomePage() {
   const [showLaneModal, setShowLaneModal] = useState(false);
   const [heroPickerMode, setHeroPickerMode] = useState(null); // 'ban' | 'pick' | null
   const [heroList, setHeroList] = useState([]);
+  // New state for extra fields
+  const [turtleTaken, setTurtleTaken] = useState('');
+  const [lordTaken, setLordTaken] = useState('');
+  const [notes, setNotes] = useState('');
+  const [playstyle, setPlaystyle] = useState('');
 
   useEffect(() => {
     fetch('/api/matches')
@@ -83,6 +88,67 @@ export default function HomePage() {
       .then(res => res.json())
       .then(data => setHeroList(data));
   }, []);
+
+  async function handleExportConfirm() {
+    // Gather values from your state and inputs
+    const matchDate = document.getElementById('match-date-input').value;
+    const winner = document.getElementById('winner-input').value;
+    const blueTeam = document.getElementById('blue-team-input').value;
+    const redTeam = document.getElementById('red-team-input').value;
+
+    // Use your state for bans and picks
+    const payload = {
+      match_date: matchDate,
+      winner: winner,
+      turtle_taken: turtleTaken ? parseInt(turtleTaken) : null,
+      lord_taken: lordTaken ? parseInt(lordTaken) : null,
+      notes: notes,
+      playstyle: playstyle,
+      teams: [
+        {
+          team: blueTeam,
+          team_color: "blue",
+          banning_phase1: banning.blue1,
+          picks1: picks.blue[1].map(p => p.hero),
+          banning_phase2: banning.blue2,
+          picks2: picks.blue[2].map(p => p.hero)
+        },
+        {
+          team: redTeam,
+          team_color: "red",
+          banning_phase1: banning.red1,
+          picks1: picks.red[1].map(p => p.hero),
+          banning_phase2: banning.red2,
+          picks2: picks.red[2].map(p => p.hero)
+        }
+      ]
+    };
+
+    try {
+      const response = await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        setModalState('none');
+        setTurtleTaken('');
+        setLordTaken('');
+        setNotes('');
+        setPlaystyle('');
+        // Fetch the latest match and prepend it to the matches list
+        const newMatchResponse = await fetch('/api/matches');
+        const allMatches = await newMatchResponse.json();
+        if (allMatches && allMatches.length > 0) {
+          setMatches(prev => [allMatches[0], ...prev.filter(m => m.id !== allMatches[0].id)]);
+        }
+      } else {
+        alert('Failed to export match');
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    }
+  }
 
   return (
     <div className="min-h-screen" style={{ background: '#181A20' }}>
@@ -130,6 +196,7 @@ export default function HomePage() {
                     {match.teams.map((team, idx) => (
                       <tr
                         key={team.id}
+                        data-match-id={match.id}
                         className={
                           `transition-colors duration-200 rounded-lg ` +
                           (hoveredMatchId === match.id ? 'bg-blue-900/30' : '')
@@ -147,7 +214,7 @@ export default function HomePage() {
                             </td>
                           </>
                         )}
-                        <td className="py-3 px-4 text-center font-bold align-middle">
+                        <td className="py-3 px-1 text-center font-bold align-middle">
                           {team.team_color === 'blue' ? (
                             <span className="relative group inline-block bg-blue-500 text-white px-3 py-1 rounded font-bold cursor-pointer focus:outline-none" tabIndex={0} aria-label="1st Pick">
                               {team.team}
@@ -161,25 +228,101 @@ export default function HomePage() {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-center align-middle min-w-[220px]">
-                          {team.banning_phase1 && team.banning_phase1.split('/').map(ban => (
-                            <span key={ban} className="bg-red-500 text-white px-3 py-1 rounded-full mx-1 inline-block shadow-sm text-sm font-semibold hover:bg-red-600 transition-colors duration-200 whitespace-nowrap">{ban}</span>
-                          ))}
+                        <td className="py-3 px-1 text-center align-middle min-w-[120px]">
+                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                            {Array.isArray(team.banning_phase1)
+                              ? team.banning_phase1.map(heroName => {
+                                  const hero = heroList.find(h => h.name === heroName);
+                                  return hero ? (
+                                    <img
+                                      key={heroName}
+                                      src={`/heroes/${hero.role}/${hero.image}`}
+                                      alt={heroName}
+                                      style={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: '50%',
+                                        objectFit: 'cover',
+                                        border: '1px solid #e11d48',
+                                        background: '#181A20'
+                                      }}
+                                    />
+                                  ) : null;
+                                })
+                              : null}
+                          </div>
                         </td>
-                        <td className="py-3 px-4 text-center align-middle min-w-[220px]">
-                          {team.picks1 && team.picks1.split('/').map(pick => (
-                            <span key={pick} className="bg-green-500 text-white px-3 py-1 rounded-full mx-1 inline-block shadow-sm text-sm font-semibold hover:bg-green-600 transition-colors duration-200 whitespace-nowrap">{pick}</span>
-                          ))}
+                        <td className="py-3 px-1 text-center align-middle min-w-[140px]">
+                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                            {Array.isArray(team.picks1)
+                              ? team.picks1.map(heroName => {
+                                  const hero = heroList.find(h => h.name === heroName);
+                                  return hero ? (
+                                    <img
+                                      key={heroName}
+                                      src={`/heroes/${hero.role}/${hero.image}`}
+                                      alt={heroName}
+                                      style={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: '50%',
+                                        objectFit: 'cover',
+                                        border: '1px solid #22c55e',
+                                        background: '#181A20'
+                                      }}
+                                    />
+                                  ) : null;
+                                })
+                              : null}
+                          </div>
                         </td>
-                        <td className="py-3 px-4 text-center align-middle min-w-[220px]">
-                          {team.banning_phase2 && team.banning_phase2.split('/').map(ban => (
-                            <span key={ban} className="bg-red-500 text-white px-3 py-1 rounded-full mx-1 inline-block shadow-sm text-sm font-semibold hover:bg-red-600 transition-colors duration-200 whitespace-nowrap">{ban}</span>
-                          ))}
+                        <td className="py-3 px-1 text-center align-middle min-w-[140px]">
+                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                            {Array.isArray(team.banning_phase2)
+                              ? team.banning_phase2.map(heroName => {
+                                  const hero = heroList.find(h => h.name === heroName);
+                                  return hero ? (
+                                    <img
+                                      key={heroName}
+                                      src={`/heroes/${hero.role}/${hero.image}`}
+                                      alt={heroName}
+                                      style={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: '50%',
+                                        objectFit: 'cover',
+                                        border: '1px solid #e11d48',
+                                        background: '#181A20'
+                                      }}
+                                    />
+                                  ) : null;
+                                })
+                              : null}
+                          </div>
                         </td>
-                        <td className="py-3 px-4 text-center align-middle min-w-[220px]">
-                          {team.picks2 && team.picks2.split('/').map(pick => (
-                            <span key={pick} className="bg-green-500 text-white px-3 py-1 rounded-full mx-1 inline-block shadow-sm text-sm font-semibold hover:bg-green-600 transition-colors duration-200 whitespace-nowrap">{pick}</span>
-                          ))}
+                        <td className="py-3 px-1 text-center align-middle min-w-[140px]">
+                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                            {Array.isArray(team.picks2)
+                              ? team.picks2.map(heroName => {
+                                  const hero = heroList.find(h => h.name === heroName);
+                                  return hero ? (
+                                    <img
+                                      key={heroName}
+                                      src={`/heroes/${hero.role}/${hero.image}`}
+                                      alt={heroName}
+                                      style={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: '50%',
+                                        objectFit: 'cover',
+                                        border: '1px solid #22c55e',
+                                        background: '#181A20'
+                                      }}
+                                    />
+                                  ) : null;
+                                })
+                              : null}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -235,11 +378,11 @@ export default function HomePage() {
                   </button>
                 </div>
                 {/* Winner Field */}
-                <input type="text" placeholder="Winner" className="bg-[#181A20] text-white rounded px-2 py-1 w-full focus:outline-none" />
+                <input type="text" placeholder="Winner" className="bg-[#181A20] text-white rounded px-2 py-1 w-full focus:outline-none" id="winner-input" />
                 {/* Blue Team */}
                 <div className="flex items-center bg-[#181A20] rounded px-2 py-1">
                   <span className="mr-2 text-blue-400 text-lg">🔵</span>
-                  <input type="text" placeholder="Blue Team" className="bg-transparent text-white rounded focus:outline-none w-full" />
+                  <input type="text" placeholder="Blue Team" className="bg-transparent text-white rounded focus:outline-none w-full" id="blue-team-input" />
                 </div>
                 {/* Banning Phase 1 */}
                 <button
@@ -285,7 +428,7 @@ export default function HomePage() {
                 {/* Red Team */}
                 <div className="flex items-center bg-[#181A20] rounded px-2 py-1">
                   <span className="mr-2 text-red-400 text-lg">🔴</span>
-                  <input type="text" placeholder="Red Team" className="bg-transparent text-white rounded focus:outline-none w-full" />
+                  <input type="text" placeholder="Red Team" className="bg-transparent text-white rounded focus:outline-none w-full" id="red-team-input" />
                 </div>
                 {/* Banning Phase 1 */}
                 <button
@@ -329,7 +472,7 @@ export default function HomePage() {
                 <div className="flex flex-col gap-2">
                   <label className="font-bold bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent select-none">
                     Turtle taken
-                    <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" defaultValue="">
+                    <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" value={turtleTaken} onChange={e => setTurtleTaken(e.target.value)}>
                       <option value="">Select</option>
                       <option value="1">1</option>
                       <option value="2">2</option>
@@ -338,7 +481,7 @@ export default function HomePage() {
                   </label>
                   <label className="font-bold bg-gradient-to-r from-red-400 to-yellow-400 bg-clip-text text-transparent select-none">
                     Lord taken
-                    <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" defaultValue="">
+                    <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" value={lordTaken} onChange={e => setLordTaken(e.target.value)}>
                       <option value="">Select</option>
                       <option value="1">1</option>
                       <option value="2">2</option>
@@ -350,15 +493,21 @@ export default function HomePage() {
                 </div>
                 <div className="flex-1 flex items-center">
                   <label className="mr-2 text-white font-semibold">Notes:</label>
-                  <textarea placeholder="Notes" className="bg-[#181A20] text-white rounded-xl px-4 py-2 w-full focus:outline-none resize-none" style={{height: '80px'}} />
+                  <textarea placeholder="Notes" className="bg-[#181A20] text-white rounded-xl px-4 py-2 w-full focus:outline-none resize-none" style={{height: '80px'}} value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
                 <div className="flex items-center">
                   <label className="mr-2 text-white font-semibold">Playstyle:</label>
-                  <input type="text" placeholder="Playstyle" className="bg-[#181A20] text-white rounded-full px-4 py-1 w-32 focus:outline-none" />
+                  <input type="text" placeholder="Playstyle" className="bg-[#181A20] text-white rounded-full px-4 py-1 w-32 focus:outline-none" value={playstyle} onChange={e => setPlaystyle(e.target.value)} />
                 </div>
               </div>
               <div className="modal-action mt-6 flex justify-end gap-4">
-                <button type="button" className="btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold">Confirm</button>
+                <button
+                  type="button"
+                  className="btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold"
+                  onClick={handleExportConfirm}
+                >
+                  Confirm
+                </button>
                 <button type="button" className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold" onClick={() => setModalState('none')}>Close</button>
               </div>
             </form>
@@ -443,6 +592,43 @@ export default function HomePage() {
           heroPickerTarget={heroPickerTarget}
         />
       )}
+      {/* Hover modal for match details */}
+      {hoveredMatchId && (() => {
+        const match = matches.find(m => m.id === hoveredMatchId);
+        if (!match) return null;
+        // Find the DOM node for the hovered row
+        const row = document.querySelector(`tr[data-match-id='${hoveredMatchId}']`);
+        let top = 200, left = 1200; // fallback values
+        if (row) {
+          const rect = row.getBoundingClientRect();
+          top = rect.top + window.scrollY + rect.height / 2;
+          left = rect.left + window.scrollX + rect.width / 2;
+        }
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              left: left,
+              top: top,
+              transform: 'translate(-50%, -50%)',
+              zIndex: 9999,
+              background: '#23232a',
+              color: 'white',
+              borderRadius: 12,
+              boxShadow: '0 4px 24px 0 rgba(0,0,0,0.25)',
+              padding: 24,
+              minWidth: 300,
+              pointerEvents: 'none',
+              transition: 'top 0.1s, left 0.1s',
+            }}
+          >
+            <div><b>Turtle taken:</b> {match.turtle_taken ?? 'N/A'}</div>
+            <div><b>Lord taken:</b> {match.lord_taken ?? 'N/A'}</div>
+            <div><b>Playstyle:</b> {match.playstyle ?? 'N/A'}</div>
+            <div><b>Notes:</b> {match.notes ?? 'N/A'}</div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
