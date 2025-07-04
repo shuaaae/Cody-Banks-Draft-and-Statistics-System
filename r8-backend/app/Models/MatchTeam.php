@@ -18,6 +18,13 @@ class MatchTeam extends Model
         'picks2'
     ];
 
+    protected $casts = [
+        'banning_phase1' => 'array',
+        'picks1' => 'array',
+        'banning_phase2' => 'array',
+        'picks2' => 'array',
+    ];
+
     // Relationship to match
     public function match()
     {

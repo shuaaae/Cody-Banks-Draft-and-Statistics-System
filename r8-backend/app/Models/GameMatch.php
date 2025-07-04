@@ -12,7 +12,11 @@ class GameMatch extends Model
 
     protected $fillable = [
         'match_date',
-        'winner'
+        'winner',
+        'turtle_taken',
+        'lord_taken',
+        'notes',
+        'playstyle'
     ];
 
     // Relationship to teams
