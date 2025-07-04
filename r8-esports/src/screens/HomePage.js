@@ -1,12 +1,70 @@
 import React, { useEffect, useState } from 'react';
 
+// Placeholder hero list (replace with images later)
+const HERO_LIST = [
+  'HeroA', 'HeroB', 'HeroC', 'HeroD', 'HeroE', 'HeroF', 'HeroG', 'HeroH', 'HeroI', 'HeroJ',
+  'HeroK', 'HeroL', 'HeroM', 'HeroN', 'HeroO', 'HeroP', 'HeroQ', 'HeroR', 'HeroS', 'HeroT'
+];
 
+// Placeholder hero type map (replace with real types later)
+const HERO_TYPE_MAP = {
+  HeroA: 'Tank', HeroB: 'Fighter', HeroC: 'Mage', HeroD: 'Assassin', HeroE: 'Marksman', HeroF: 'Support',
+  HeroG: 'Tank', HeroH: 'Fighter', HeroI: 'Mage', HeroJ: 'Assassin', HeroK: 'Marksman', HeroL: 'Support',
+  HeroM: 'Tank', HeroN: 'Fighter', HeroO: 'Mage', HeroP: 'Assassin', HeroQ: 'Marksman', HeroR: 'Support',
+  HeroS: 'Tank', HeroT: 'Fighter'
+};
+const HERO_TYPES = ['Tank', 'Fighter', 'Mage', 'Assassin', 'Marksman', 'Support'];
 
+// Add lane options
+const LANE_OPTIONS = [
+  { key: 'exp', label: 'Exp Lane' },
+  { key: 'jungler', label: 'Jungler' },
+  { key: 'mid', label: 'Mid Lane' },
+  { key: 'gold', label: 'Gold Lane' },
+  { key: 'roam', label: 'Roam' },
+];
 
+// Lane to hero type mapping for picks
+const LANE_TYPE_MAP = {
+  exp: 'Fighter',
+  jungler: 'Assassin',
+  mid: 'Mage',
+  gold: 'Marksman',
+  roam: 'Support', // or 'Tank' if you want both, but for now Support
+};
+
+function HeroImage({ src, alt }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="hero-face-crop"
+      loading="lazy"
+      style={{
+        background: '#181A20', // subtle dark background
+        opacity: loaded ? 1 : 0,
+        transition: 'opacity 0.3s ease',
+      }}
+      onLoad={() => setLoaded(true)}
+    />
+  );
+}
 
 export default function HomePage() {
   const [matches, setMatches] = useState([]);
   const [hoveredMatchId, setHoveredMatchId] = useState(null);
+  const [banning, setBanning] = useState({
+    blue1: [], blue2: [], red1: [], red2: []
+  });
+  const [heroPickerTarget, setHeroPickerTarget] = useState(null);
+  const [modalState, setModalState] = useState('none'); // 'none' | 'export' | 'heroPicker'
+  const [picks, setPicks] = useState({ blue: { 1: [], 2: [] }, red: { 1: [], 2: [] } }); // { blue: {1: [{lane, hero}], 2: [...]}, red: {...} }
+  const [pickTarget, setPickTarget] = useState(null); // { team: 'blue'|'red', pickNum: 1|2, lane: null|string }
+  const [showLaneModal, setShowLaneModal] = useState(false);
+  const [heroPickerMode, setHeroPickerMode] = useState(null); // 'ban' | 'pick' | null
+  const [heroList, setHeroList] = useState([]);
+
   useEffect(() => {
     fetch('/api/matches')
       .then(res => res.json())
@@ -18,6 +76,12 @@ export default function HomePage() {
         setMatches([]);
         console.error(err);
       });
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/heroes')
+      .then(res => res.json())
+      .then(data => setHeroList(data));
   }, []);
 
   return (
@@ -40,13 +104,7 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row items-center justify-center mb-8 w-full">
             <button
               className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3 rounded-lg shadow mb-4 sm:mb-0 sm:mr-6 transition flex items-center"
-              onClick={() => {
-                document.getElementById('my_modal_4').showModal();
-                setTimeout(() => {
-                  const trap = document.getElementById('modal-focus-trap');
-                  if (trap) trap.focus();
-                }, 50);
-              }}
+              onClick={() => setModalState('export')}
             >
               Export Match
               <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
@@ -132,125 +190,404 @@ export default function HomePage() {
           </div>
         </div>
       </main>
-      <dialog id="my_modal_4" className="modal">
-        <div className="modal-box w-full max-w-7xl bg-[#23232a] rounded-2xl shadow-2xl p-8 px-12" style={{background: '#23232a'}}>
-          {/* Focus trap to prevent date input from being auto-focused */}
-          <button
-            type="button"
-            tabIndex={0}
-            style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-            aria-hidden="true"
-            id="modal-focus-trap"
-          />
-          <h2 className="text-2xl font-bold text-white mb-6">Data Draft Input</h2>
-          <form className="space-y-6">
-            <div className="grid grid-cols-7 gap-6 items-center text-white text-sm font-semibold mb-2">
-              <label className="col-span-1">Date</label>
-              <label className="col-span-1">Results</label>
-              <label className="col-span-1">Team</label>
-              <label className="col-span-1">Banning phase 1</label>
-              <label className="col-span-1">Pick</label>
-              <label className="col-span-1">Banning phase 2</label>
-              <label className="col-span-1">Pick</label>
-            </div>
-            {/* Row 1: Blue Team */}
-            <div className="grid grid-cols-7 gap-6 items-center mb-2">
-              {/* Date Picker */}
-              <div className="relative flex items-center bg-[#181A20] rounded px-2 py-1">
-                <input
-                  type="date"
-                  className="bg-transparent text-white rounded w-full focus:outline-none pr-8"
-                  id="match-date-input"
-                />
+      {(modalState === 'export' || modalState === 'heroPicker') && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black bg-opacity-70">
+          <div className="modal-box w-full max-w-[110rem] bg-[#23232a] rounded-2xl shadow-2xl p-8 px-20" style={{background: '#23232a'}}>
+            {/* Focus trap to prevent date input from being auto-focused */}
+            <button
+              type="button"
+              tabIndex={0}
+              style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+              aria-hidden="true"
+              id="modal-focus-trap"
+            />
+            <h2 className="text-2xl font-bold text-white mb-6">Data Draft Input</h2>
+            <form className="space-y-6">
+              <div className="grid grid-cols-7 gap-6 items-center text-white text-sm font-semibold mb-2">
+                <label className="col-span-1">Date</label>
+                <label className="col-span-1">Results</label>
+                <label className="col-span-1">Team</label>
+                <label className="col-span-1">Banning phase 1</label>
+                <label className="col-span-1">Pick</label>
+                <label className="col-span-1">Banning phase 2</label>
+                <label className="col-span-1">Pick</label>
+              </div>
+              {/* Row 1: Blue Team */}
+              <div className="grid grid-cols-7 gap-6 items-center mb-2">
+                {/* Date Picker */}
+                <div className="relative flex items-center bg-[#181A20] rounded px-2 py-1">
+                  <input
+                    type="date"
+                    className="bg-transparent text-white rounded w-full focus:outline-none pr-8"
+                    id="match-date-input"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-300 focus:outline-none"
+                    tabIndex={-1}
+                    aria-label="Pick date"
+                    onClick={() => document.getElementById('match-date-input').showPicker && document.getElementById('match-date-input').showPicker()}
+                  >
+                    {/* SVG calendar icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 7.5h16.5M4.5 21h15a.75.75 0 00.75-.75V6.75A2.25 2.25 0 0018 4.5H6A2.25 2.25 0 003.75 6.75v13.5c0 .414.336.75.75.75z" />
+                    </svg>
+                  </button>
+                </div>
+                {/* Winner Field */}
+                <input type="text" placeholder="Winner" className="bg-[#181A20] text-white rounded px-2 py-1 w-full focus:outline-none" />
+                {/* Blue Team */}
+                <div className="flex items-center bg-[#181A20] rounded px-2 py-1">
+                  <span className="mr-2 text-blue-400 text-lg">🔵</span>
+                  <input type="text" placeholder="Blue Team" className="bg-transparent text-white rounded focus:outline-none w-full" />
+                </div>
+                {/* Banning Phase 1 */}
                 <button
                   type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-400 hover:text-blue-300 focus:outline-none"
-                  tabIndex={-1}
-                  aria-label="Pick date"
-                  onClick={() => document.getElementById('match-date-input').showPicker && document.getElementById('match-date-input').showPicker()}
+                  className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  onClick={() => { setHeroPickerTarget('blue1'); setHeroPickerMode('ban'); setModalState('heroPicker'); }}
                 >
-                  {/* SVG calendar icon */}
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 7.5h16.5M4.5 21h15a.75.75 0 00.75-.75V6.75A2.25 2.25 0 0018 4.5H6A2.25 2.25 0 003.75 6.75v13.5c0 .414.336.75.75.75z" />
-                  </svg>
+                  {banning.blue1.length === 0 ? 'Choose a hero' : banning.blue1.join(', ')}
+                </button>
+                {/* Pick 1 */}
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  onClick={() => { setPickTarget({ team: 'blue', pickNum: 1, lane: null }); setShowLaneModal(true); }}
+                >
+                  {Array.isArray(picks.blue[1]) && picks.blue[1].length > 0
+                    ? picks.blue[1].filter(p => p && p.lane && p.hero).map(p => p.hero).join(', ')
+                    : 'Choose a hero'}
+                </button>
+                {/* Banning Phase 2 */}
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  onClick={() => { setHeroPickerTarget('blue2'); setHeroPickerMode('ban'); setModalState('heroPicker'); }}
+                >
+                  {banning.blue2.length === 0 ? 'Choose a hero' : banning.blue2.join(', ')}
+                </button>
+                {/* Pick 2 */}
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  onClick={() => { setPickTarget({ team: 'blue', pickNum: 2, lane: null }); setShowLaneModal(true); }}
+                >
+                  {Array.isArray(picks.blue[2]) && picks.blue[2].filter(p => p && p.hero).length > 0
+                    ? picks.blue[2].filter(p => p && p.hero).map(p => p.hero).join(', ')
+                    : 'Choose a hero'}
                 </button>
               </div>
-              {/* Winner Field */}
-              <input type="text" placeholder="Winner" className="bg-[#181A20] text-white rounded px-2 py-1 w-full focus:outline-none" />
-              {/* Blue Team */}
-              <div className="flex items-center bg-[#181A20] rounded px-2 py-1">
-                <span className="mr-2 text-blue-400 text-lg">🔵</span>
-                <input type="text" placeholder="Blue Team" className="bg-transparent text-white rounded focus:outline-none w-full" />
+              {/* Row 2: Red Team */}
+              <div className="grid grid-cols-7 gap-6 items-center mb-2">
+                <div></div>
+                <div></div>
+                {/* Red Team */}
+                <div className="flex items-center bg-[#181A20] rounded px-2 py-1">
+                  <span className="mr-2 text-red-400 text-lg">🔴</span>
+                  <input type="text" placeholder="Red Team" className="bg-transparent text-white rounded focus:outline-none w-full" />
+                </div>
+                {/* Banning Phase 1 */}
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  onClick={() => { setHeroPickerTarget('red1'); setHeroPickerMode('ban'); setModalState('heroPicker'); }}
+                >
+                  {banning.red1.length === 0 ? 'Choose a hero' : banning.red1.join(', ')}
+                </button>
+                {/* Pick 1 */}
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  onClick={() => { setPickTarget({ team: 'red', pickNum: 1, lane: null }); setShowLaneModal(true); }}
+                >
+                  {Array.isArray(picks.red[1]) && picks.red[1].length > 0
+                    ? picks.red[1].filter(p => p && p.lane && p.hero).map(p => p.hero).join(', ')
+                    : 'Choose a hero'}
+                </button>
+                {/* Banning Phase 2 */}
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  onClick={() => { setHeroPickerTarget('red2'); setHeroPickerMode('ban'); setModalState('heroPicker'); }}
+                >
+                  {banning.red2.length === 0 ? 'Choose a hero' : banning.red2.join(', ')}
+                </button>
+                {/* Pick 2 */}
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  onClick={() => { setPickTarget({ team: 'red', pickNum: 2, lane: null }); setShowLaneModal(true); }}
+                >
+                  {Array.isArray(picks.red[2]) && picks.red[2].filter(p => p && p.hero).length > 0
+                    ? picks.red[2].filter(p => p && p.hero).map(p => p.hero).join(', ')
+                    : 'Choose a hero'}
+                </button>
               </div>
-              {/* Banning Phase 1 */}
-              <button type="button" className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400">Choose a hero</button>
-              {/* Pick 1 */}
-              <button type="button" className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400">Choose a hero</button>
-              {/* Banning Phase 2 */}
-              <button type="button" className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400">Choose a hero</button>
-              {/* Pick 2 */}
-              <button type="button" className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400">Choose a hero</button>
-            </div>
-            {/* Row 2: Red Team */}
-            <div className="grid grid-cols-7 gap-6 items-center mb-2">
-              <div></div>
-              <div></div>
-              {/* Red Team */}
-              <div className="flex items-center bg-[#181A20] rounded px-2 py-1">
-                <span className="mr-2 text-red-400 text-lg">🔴</span>
-                <input type="text" placeholder="Red Team" className="bg-transparent text-white rounded focus:outline-none w-full" />
+              {/* Turtle/Lord taken, Notes, Playstyle */}
+              <div className="flex flex-wrap items-center gap-8 mt-4">
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent select-none">
+                    Turtle taken
+                    <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" defaultValue="">
+                      <option value="">Select</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                    </select>
+                  </label>
+                  <label className="font-bold bg-gradient-to-r from-red-400 to-yellow-400 bg-clip-text text-transparent select-none">
+                    Lord taken
+                    <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" defaultValue="">
+                      <option value="">Select</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="flex-1 flex items-center">
+                  <label className="mr-2 text-white font-semibold">Notes:</label>
+                  <textarea placeholder="Notes" className="bg-[#181A20] text-white rounded-xl px-4 py-2 w-full focus:outline-none resize-none" style={{height: '80px'}} />
+                </div>
+                <div className="flex items-center">
+                  <label className="mr-2 text-white font-semibold">Playstyle:</label>
+                  <input type="text" placeholder="Playstyle" className="bg-[#181A20] text-white rounded-full px-4 py-1 w-32 focus:outline-none" />
+                </div>
               </div>
-              {/* Banning Phase 1 */}
-              <button type="button" className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400">Choose a hero</button>
-              {/* Pick 1 */}
-              <button type="button" className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400">Choose a hero</button>
-              {/* Banning Phase 2 */}
-              <button type="button" className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400">Choose a hero</button>
-              {/* Pick 2 */}
-              <button type="button" className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400">Choose a hero</button>
-            </div>
-            {/* Turtle/Lord taken, Notes, Playstyle */}
-            <div className="flex flex-wrap items-center gap-8 mt-4">
-              <div className="flex flex-col gap-2">
-                <label className="font-bold bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent select-none">
-                  Turtle taken
-                  <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" defaultValue="">
-                    <option value="">Select</option>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                  </select>
-                </label>
-                <label className="font-bold bg-gradient-to-r from-red-400 to-yellow-400 bg-clip-text text-transparent select-none">
-                  Lord taken
-                  <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" defaultValue="">
-                    <option value="">Select</option>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                  </select>
-                </label>
+              <div className="modal-action mt-6 flex justify-end gap-4">
+                <button type="button" className="btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold">Confirm</button>
+                <button type="button" className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold" onClick={() => setModalState('none')}>Close</button>
               </div>
-              <div className="flex-1 flex items-center">
-                <label className="mr-2 text-white font-semibold">Notes:</label>
-                <textarea placeholder="Notes" className="bg-[#181A20] text-white rounded-xl px-4 py-2 w-full focus:outline-none resize-none" style={{height: '80px'}} />
-              </div>
-              <div className="flex items-center">
-                <label className="mr-2 text-white font-semibold">Playstyle:</label>
-                <input type="text" placeholder="Playstyle" className="bg-[#181A20] text-white rounded-full px-4 py-1 w-32 focus:outline-none" />
-              </div>
-            </div>
-            <div className="modal-action mt-6 flex justify-end gap-4">
-              <button type="button" className="btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold">Confirm</button>
-              <form method="dialog">
-                <button className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold">Close</button>
-              </form>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
-      </dialog>
+      )}
+      {showLaneModal && pickTarget && picks[pickTarget.team] && picks[pickTarget.team][pickTarget.pickNum] && (
+        <LaneSelectModal
+          open={showLaneModal}
+          onClose={() => setShowLaneModal(false)}
+          availableLanes={(() => {
+            // For pick phase 2, filter out lanes already picked in phase 1 for the same team
+            const currentTeam = pickTarget.team;
+            const currentPickNum = pickTarget.pickNum;
+            let usedLanes = [];
+            if (currentPickNum === 2) {
+              usedLanes = (Array.isArray(picks[currentTeam][1]) ? picks[currentTeam][1] : []).map(p => p && p.lane).filter(Boolean);
+            }
+            // Also filter out lanes already picked in this phase
+            const alreadyPicked = (Array.isArray(picks[currentTeam][currentPickNum]) ? picks[currentTeam][currentPickNum] : []).map(p => p && p.lane).filter(Boolean);
+            return LANE_OPTIONS.filter(lane => !usedLanes.includes(lane.key) && !alreadyPicked.includes(lane.key));
+          })()}
+          onSelect={lane => {
+            setPickTarget(pt => {
+              const updated = { ...pt, lane };
+              setHeroPickerMode('pick');
+              setModalState('heroPicker');
+              return updated;
+            });
+            setShowLaneModal(false);
+          }}
+        />
+      )}
+      {/* Show HeroPickerModal for banning */}
+      {modalState === 'heroPicker' && heroPickerMode === 'ban' && heroPickerTarget && (
+        <HeroPickerModal
+          open={true}
+          onClose={() => setModalState('export')}
+          selected={banning[heroPickerTarget] || []}
+          setSelected={selected => {
+            setBanning(prev => ({
+              ...prev,
+              [heroPickerTarget]: selected
+            }));
+          }}
+          maxSelect={heroPickerTarget.endsWith('1') ? 3 : 2}
+          bannedHeroes={Object.values(banning).flat().filter((h, i, arr) => arr.indexOf(h) !== i ? false : true)}
+          heroList={heroList}
+          heroPickerMode={heroPickerMode}
+          pickTarget={pickTarget}
+          picks={picks}
+          banning={banning}
+          heroPickerTarget={heroPickerTarget}
+        />
+      )}
+      {/* Show HeroPickerModal for picks */}
+      {modalState === 'heroPicker' && heroPickerMode === 'pick' && pickTarget && pickTarget.lane && (
+        <HeroPickerModal
+          open={true}
+          onClose={() => setModalState('export')}
+          selected={[]}
+          setSelected={selected => {
+            setPicks(prev => ({
+              ...prev,
+              [pickTarget.team]: {
+                ...prev[pickTarget.team],
+                [pickTarget.pickNum]: [
+                  ...((Array.isArray(prev[pickTarget.team][pickTarget.pickNum]) ? prev[pickTarget.team][pickTarget.pickNum] : [])),
+                  { lane: pickTarget.lane, hero: selected[0] }
+                ]
+              }
+            }));
+          }}
+          maxSelect={1}
+          bannedHeroes={Object.values(banning).flat()}
+          filterType={LANE_TYPE_MAP[pickTarget.lane]}
+          heroList={heroList}
+          heroPickerMode={heroPickerMode}
+          pickTarget={pickTarget}
+          picks={picks}
+          banning={banning}
+          heroPickerTarget={heroPickerTarget}
+        />
+      )}
+    </div>
+  );
+}
+
+// Hero Picker Modal
+function HeroPickerModal({ open, onClose, selected, setSelected, maxSelect = 1, bannedHeroes = [], filterType = null, heroList = [], heroPickerMode, pickTarget, picks, banning, heroPickerTarget }) {
+  const [selectedType, setSelectedType] = React.useState('All');
+  const [localSelected, setLocalSelected] = React.useState(selected);
+
+  React.useEffect(() => {
+    if (open) {
+      setLocalSelected(selected);
+    }
+  }, [open, selected]);
+
+  if (!open) return null;
+  const toggleHero = (heroName) => {
+    if (localSelected.includes(heroName)) {
+      setLocalSelected(localSelected.filter(h => h !== heroName));
+    } else if (localSelected.length < maxSelect) {
+      setLocalSelected([...localSelected, heroName]);
+    }
+  };
+  const canConfirm = localSelected.length === maxSelect;
+  let filteredHeroes = heroList;
+  if (filterType) {
+    filteredHeroes = filteredHeroes.filter(hero => hero.role === filterType);
+  } else if (selectedType !== 'All') {
+    filteredHeroes = filteredHeroes.filter(hero => hero.role === selectedType);
+  }
+
+  // For banning phase, only filter out already selected bans for the current team/phase (allow duplication across teams)
+  let effectiveBannedHeroes = bannedHeroes;
+  if (heroPickerMode === 'ban' && heroPickerTarget) {
+    effectiveBannedHeroes = (banning[heroPickerTarget] || []);
+  }
+  filteredHeroes = filteredHeroes.filter(hero => !effectiveBannedHeroes.includes(hero.name));
+
+  // For pick mode, remove heroes already picked by the other team
+  if (heroPickerMode === 'pick' && pickTarget && pickTarget.team) {
+    const otherTeam = pickTarget.team === 'blue' ? 'red' : 'blue';
+    const otherTeamPicks = [
+      ...(Array.isArray(picks[otherTeam][1]) ? picks[otherTeam][1] : []),
+      ...(Array.isArray(picks[otherTeam][2]) ? picks[otherTeam][2] : [])
+    ].map(p => p && p.hero).filter(Boolean);
+    filteredHeroes = filteredHeroes.filter(hero => !otherTeamPicks.includes(hero.name));
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80">
+      <div className="modal-box w-full max-w-5xl bg-[#23232a] rounded-2xl shadow-2xl p-8">
+        <h3 className="text-xl font-bold text-white mb-4">Select {maxSelect} Hero{maxSelect > 1 ? 'es' : ''}{filterType ? ` (${filterType})` : (selectedType !== 'All' ? ` (${selectedType})` : '')}</h3>
+        {!filterType && (
+          <div className="flex gap-2 mb-6 flex-wrap">
+            <button
+              type="button"
+              className={`px-4 py-1 rounded-full font-semibold border ${selectedType === 'All' ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-white border-gray-600 hover:bg-blue-900/20'}`}
+              onClick={() => setSelectedType('All')}
+            >
+              All
+            </button>
+            {[...new Set(heroList.map(h => h.role))].map(type => (
+              <button
+                key={type}
+                type="button"
+                className={`px-4 py-1 rounded-full font-semibold border ${selectedType === type ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-white border-gray-600 hover:bg-blue-900/20'}`}
+                onClick={() => setSelectedType(type)}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="grid grid-cols-9 gap-1 mb-6 max-h-[60vh] overflow-y-auto pr-2">
+          {Array.from(new Map(filteredHeroes.map(hero => [hero.name, hero])).values()).map(hero => (
+            <button
+              key={hero.name}
+              type="button"
+              className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all font-semibold text-white ${localSelected.includes(hero.name) ? 'border-green-400 bg-green-900/30' : 'border-transparent hover:border-blue-400 hover:bg-blue-900/20'}`}
+              onClick={() => toggleHero(hero.name)}
+              disabled={localSelected.length === maxSelect && !localSelected.includes(hero.name)}
+            >
+              <div
+                className={`w-16 h-16 rounded-full shadow-lg bg-gradient-to-b from-blue-900 to-blue-700 overflow-hidden flex items-center justify-center mb-2`}
+                style={{ background: 'linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%)' }}
+              >
+                <HeroImage
+                  src={`/heroes/${hero.role}/${hero.image}`}
+                  alt={hero.name}
+                />
+              </div>
+              <span className="text-sm text-white font-semibold text-center w-20 truncate">{hero.name}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end gap-4">
+          <button
+            type="button"
+            className="btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold disabled:opacity-50"
+            disabled={!canConfirm}
+            onClick={() => {
+              if (canConfirm) {
+                setSelected(localSelected);
+                onClose();
+              }
+            }}
+          >
+            Confirm
+          </button>
+          <button
+            type="button"
+            className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
+            onClick={() => { setLocalSelected([]); onClose(); }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Lane selection modal
+function LaneSelectModal({ open, onClose, onSelect, availableLanes = LANE_OPTIONS }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80">
+      <div className="modal-box w-full max-w-md bg-[#23232a] rounded-2xl shadow-2xl p-8">
+        <h3 className="text-xl font-bold text-white mb-4">Select Lane</h3>
+        <div className="flex flex-col gap-4">
+          {availableLanes.map(lane => (
+            <button
+              key={lane.key}
+              type="button"
+              className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-blue-600 hover:text-white transition-colors duration-150"
+              onClick={() => onSelect(lane.key)}
+            >
+              {lane.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end mt-6">
+          <button type="button" className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
     </div>
   );
 }
