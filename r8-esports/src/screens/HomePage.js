@@ -1,20 +1,5 @@
 import React, { useEffect, useState } from 'react';
 
-// Placeholder hero list (replace with images later)
-const HERO_LIST = [
-  'HeroA', 'HeroB', 'HeroC', 'HeroD', 'HeroE', 'HeroF', 'HeroG', 'HeroH', 'HeroI', 'HeroJ',
-  'HeroK', 'HeroL', 'HeroM', 'HeroN', 'HeroO', 'HeroP', 'HeroQ', 'HeroR', 'HeroS', 'HeroT'
-];
-
-// Placeholder hero type map (replace with real types later)
-const HERO_TYPE_MAP = {
-  HeroA: 'Tank', HeroB: 'Fighter', HeroC: 'Mage', HeroD: 'Assassin', HeroE: 'Marksman', HeroF: 'Support',
-  HeroG: 'Tank', HeroH: 'Fighter', HeroI: 'Mage', HeroJ: 'Assassin', HeroK: 'Marksman', HeroL: 'Support',
-  HeroM: 'Tank', HeroN: 'Fighter', HeroO: 'Mage', HeroP: 'Assassin', HeroQ: 'Marksman', HeroR: 'Support',
-  HeroS: 'Tank', HeroT: 'Fighter'
-};
-const HERO_TYPES = ['Tank', 'Fighter', 'Mage', 'Assassin', 'Marksman', 'Support'];
-
 // Add lane options
 const LANE_OPTIONS = [
   { key: 'exp', label: 'Exp Lane' },
@@ -48,6 +33,14 @@ function HeroImage({ src, alt }) {
       }}
       onLoad={() => setLoaded(true)}
     />
+  );
+}
+
+function ModalBanHeroIcon({ src, alt }) {
+  return (
+    <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: '#181A20', border: '2px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px #0002', transition: 'transform 0.15s', pointerEvents: 'auto' }} className="hover:scale-110 hover:shadow-lg">
+      <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover', border: 'none' }} />
+    </div>
   );
 }
 
@@ -150,6 +143,15 @@ export default function HomePage() {
     }
   }
 
+  React.useEffect(() => {
+    if (modalState === 'export' || modalState === 'heroPicker') {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [modalState]);
+
   return (
     <div className="min-h-screen" style={{ background: '#181A20' }}>
       {/* Header */}
@@ -234,19 +236,7 @@ export default function HomePage() {
                               ? team.banning_phase1.map(heroName => {
                                   const hero = heroList.find(h => h.name === heroName);
                                   return hero ? (
-                                    <img
-                                      key={heroName}
-                                      src={`/heroes/${hero.role}/${hero.image}`}
-                                      alt={heroName}
-                                      style={{
-                                        width: 48,
-                                        height: 48,
-                                        borderRadius: '50%',
-                                        objectFit: 'cover',
-                                        border: '1px solid #e11d48',
-                                        background: '#181A20'
-                                      }}
-                                    />
+                                    <ModalBanHeroIcon key={heroName} src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
                                   ) : null;
                                 })
                               : null}
@@ -263,11 +253,11 @@ export default function HomePage() {
                                       src={`/heroes/${hero.role}/${hero.image}`}
                                       alt={heroName}
                                       style={{
-                                        width: 48,
-                                        height: 48,
+                                        width: 56,
+                                        height: 56,
                                         borderRadius: '50%',
                                         objectFit: 'cover',
-                                        border: '1px solid #22c55e',
+                                        border: '2px solid #22c55e',
                                         background: '#181A20'
                                       }}
                                     />
@@ -282,19 +272,7 @@ export default function HomePage() {
                               ? team.banning_phase2.map(heroName => {
                                   const hero = heroList.find(h => h.name === heroName);
                                   return hero ? (
-                                    <img
-                                      key={heroName}
-                                      src={`/heroes/${hero.role}/${hero.image}`}
-                                      alt={heroName}
-                                      style={{
-                                        width: 48,
-                                        height: 48,
-                                        borderRadius: '50%',
-                                        objectFit: 'cover',
-                                        border: '1px solid #e11d48',
-                                        background: '#181A20'
-                                      }}
-                                    />
+                                    <ModalBanHeroIcon key={heroName} src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
                                   ) : null;
                                 })
                               : null}
@@ -311,11 +289,11 @@ export default function HomePage() {
                                       src={`/heroes/${hero.role}/${hero.image}`}
                                       alt={heroName}
                                       style={{
-                                        width: 48,
-                                        height: 48,
+                                        width: 56,
+                                        height: 56,
                                         borderRadius: '50%',
                                         objectFit: 'cover',
-                                        border: '1px solid #22c55e',
+                                        border: '2px solid #22c55e',
                                         background: '#181A20'
                                       }}
                                     />
@@ -335,7 +313,8 @@ export default function HomePage() {
       </main>
       {(modalState === 'export' || modalState === 'heroPicker') && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black bg-opacity-70">
-          <div className="modal-box w-full max-w-[110rem] bg-[#23232a] rounded-2xl shadow-2xl p-8 px-20" style={{background: '#23232a'}}>
+          <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', background: 'rgba(30, 41, 59, 0.85)', zIndex: 1000 }} onClick={() => setModalState('none')} />
+          <div className="modal-box w-full max-w-[110rem] rounded-2xl shadow-2xl p-8 px-20" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1001, borderRadius: 24, background: '#1e293b', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Focus trap to prevent date input from being auto-focused */}
             <button
               type="button"
@@ -474,26 +453,41 @@ export default function HomePage() {
                     Turtle taken
                     <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" value={turtleTaken} onChange={e => setTurtleTaken(e.target.value)}>
                       <option value="">Select</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
+                      <option value="3-0">3-0</option>
+                      <option value="2-1">2-1</option>
+                      <option value="1-2">1-2</option>
+                      <option value="0-3">0-3</option>
+                      <option value="2-0">2-0</option>
+                      <option value="0-2">0-2</option>
+                      <option value="1-1">1-1</option>
+                      <option value="1-0">1-0</option>
+                      <option value="0-1">0-1</option>
                     </select>
                   </label>
                   <label className="font-bold bg-gradient-to-r from-red-400 to-yellow-400 bg-clip-text text-transparent select-none">
                     Lord taken
                     <select className="ml-2 bg-[#181A20] text-white rounded px-2 py-1" value={lordTaken} onChange={e => setLordTaken(e.target.value)}>
                       <option value="">Select</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                      <option value="4">4</option>
-                      <option value="5">5</option>
+                      <option value="4-0">4 - 0</option>
+                      <option value="3-1">3 - 1</option>
+                      <option value="2-2">2 - 2</option>
+                      <option value="1-3">1 - 3</option>
+                      <option value="0-4">0 - 4</option>
+                      <option value="3-0">3 - 0</option>
+                      <option value="0-3">0 - 3</option>
+                      <option value="2-1">2 - 1</option>
+                      <option value="1-2">1 - 2</option>
+                      <option value="2-0">2 - 0</option>
+                      <option value="0-2">0 - 2</option>
+                      <option value="1-1">1 - 1</option>
+                      <option value="1-0">1 - 0</option>
+                      <option value="0-1">0 - 1</option>
                     </select>
                   </label>
                 </div>
-                <div className="flex-1 flex items-center">
-                  <label className="mr-2 text-white font-semibold">Notes:</label>
-                  <textarea placeholder="Notes" className="bg-[#181A20] text-white rounded-xl px-4 py-2 w-full focus:outline-none resize-none" style={{height: '80px'}} value={notes} onChange={e => setNotes(e.target.value)} />
+                <div className="flex-1 flex items-start">
+                  <label className="mr-2 text-white font-semibold mt-1">Notes:</label>
+                  <textarea placeholder="Notes" className="bg-[#181A20] text-white rounded-xl px-4 py-2 w-full focus:outline-none resize-none" style={{height: '120px'}} value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
                 <div className="flex items-center">
                   <label className="mr-2 text-white font-semibold">Playstyle:</label>
@@ -599,29 +593,153 @@ export default function HomePage() {
         // Find the DOM node for the hovered row
         const row = document.querySelector(`tr[data-match-id='${hoveredMatchId}']`);
         let top = 200, left = 1200; // fallback values
+        const modalHeight = 520; // Approximate modal height
         if (row) {
           const rect = row.getBoundingClientRect();
-          top = rect.top + window.scrollY + rect.height / 2;
+          const viewportHeight = window.innerHeight;
           left = rect.left + window.scrollX + rect.width / 2;
+          // Default: below the row
+          let desiredTop = rect.bottom + 16;
+          // If it would overflow bottom, show above
+          if (desiredTop + modalHeight > viewportHeight + window.scrollY) {
+            desiredTop = rect.top + window.scrollY - modalHeight - 16;
+            if (desiredTop < window.scrollY + 16) desiredTop = window.scrollY + 16; // Clamp to top
+          }
+          top = desiredTop;
         }
+        // Prepare team data
+        const blueTeam = match.teams.find(t => t.team_color === 'blue');
+        const redTeam = match.teams.find(t => t.team_color === 'red');
+        // Helper to get hero image
+        const getHeroImg = (heroName) => {
+          const hero = heroList.find(h => h.name === heroName);
+          return hero ? `/heroes/${hero.role}/${hero.image}` : null;
+        };
+        // Combine bans (max 5)
+        const getBans = (team) => {
+          const bans = [...(team.banning_phase1 || []), ...(team.banning_phase2 || [])];
+          while (bans.length < 5) bans.push(null);
+          return bans.slice(0, 5);
+        };
+        // Combine picks (vertical)
+        const getPicks = (team) => {
+          return [...(team.picks1 || []), ...(team.picks2 || [])];
+        };
         return (
           <div
             style={{
-              position: 'absolute',
+              position: 'fixed',
               left: left,
               top: top,
-              transform: 'translate(-50%, -50%)',
+              transform: 'translate(-50%, 0)',
               zIndex: 9999,
               background: '#23232a',
               color: 'white',
               borderRadius: 12,
               boxShadow: '0 4px 24px 0 rgba(0,0,0,0.25)',
               padding: 24,
-              minWidth: 300,
+              minWidth: 600,
               pointerEvents: 'none',
               transition: 'top 0.1s, left 0.1s',
+              maxHeight: '90vh',
+              overflowY: 'auto',
             }}
           >
+            {/* Visual Draft View */}
+            <div style={{
+              display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', width: 600, marginBottom: 24,
+              background: '#133366',
+              borderRadius: 32,
+              boxShadow: '0 8px 32px 0 rgba(30,40,80,0.45)',
+              border: '2px solid #2a3757',
+              padding: '32px 24px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              {/* Floor bar at the bottom */}
+              <div style={{
+                position: 'absolute',
+                left: 0,
+                bottom: 0,
+                width: '100%',
+                height: 40,
+                background: '#1a3a6b',
+                borderBottomLeftRadius: 32,
+                borderBottomRightRadius: 32,
+                zIndex: 0,
+              }} />
+              {/* Team 1 (Blue) */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 120, zIndex: 1 }}>
+                <div style={{ fontWeight: 'bold', color: '#60a5fa', marginBottom: 8, fontSize: 18 }}>{blueTeam?.team || 'Team 1'}</div>
+                {/* Bans for Blue Team */}
+                <div style={{ display: 'flex', flexDirection: 'row', marginBottom: 12, marginLeft: 96 }}>
+                  {getBans(blueTeam).map((heroName, idx) => {
+                    const img = getHeroImg(heroName);
+                    return (
+                      <div key={idx} style={{ margin: 0 }}>
+                        {img ? (
+                          <ModalBanHeroIcon src={img} alt={heroName} />
+                        ) : (
+                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#23283a', border: '2px solid #23283a' }} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Picks vertical */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {getPicks(blueTeam).map((heroName, idx) => {
+                    const img = getHeroImg(heroName);
+                    return (
+                      <div key={idx} style={{ margin: 0 }}>
+                        {img ? (
+                          <img src={img} alt={heroName} style={{ width: 56, height: 56, borderRadius: '50%', border: '2px solid #22c55e', background: '#181A20', objectFit: 'cover', boxShadow: '0 2px 8px #0002', transition: 'transform 0.15s', pointerEvents: 'auto' }} className="hover:scale-110 hover:shadow-lg" />
+                        ) : (
+                          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#181A20', border: '2px solid #23283a' }} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Team 2 (Red) */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 120, zIndex: 1 }}>
+                <div style={{ fontWeight: 'bold', color: '#f87171', marginBottom: 8, fontSize: 18 }}>{redTeam?.team || 'Team 2'}</div>
+                {/* Bans for Red Team */}
+                <div style={{ display: 'flex', flexDirection: 'row', marginBottom: 12, marginRight: 96 }}>
+                  {getBans(redTeam).map((heroName, idx) => {
+                    const img = getHeroImg(heroName);
+                    return (
+                      <div key={idx} style={{ margin: 0 }}>
+                        {img ? (
+                          <ModalBanHeroIcon src={img} alt={heroName} />
+                        ) : (
+                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#23283a', border: '2px solid #23283a' }} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Picks vertical */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {getPicks(redTeam).map((heroName, idx) => {
+                    const img = getHeroImg(heroName);
+                    return (
+                      <div key={idx} style={{ margin: 0 }}>
+                        {img ? (
+                          <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', background: '#181A20', border: '2px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px #0002', transition: 'transform 0.15s', pointerEvents: 'auto' }} className="hover:scale-110 hover:shadow-lg">
+                            <img src={img} alt={heroName} style={{ width: '100%', height: '100%', objectFit: 'cover', border: 'none' }} />
+                          </div>
+                        ) : (
+                          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#181A20', border: '2px solid #23283a' }} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            {/* Old text info */}
             <div><b>Turtle taken:</b> {match.turtle_taken ?? 'N/A'}</div>
             <div><b>Lord taken:</b> {match.lord_taken ?? 'N/A'}</div>
             <div><b>Playstyle:</b> {match.playstyle ?? 'N/A'}</div>
