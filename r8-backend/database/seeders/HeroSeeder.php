@@ -554,9 +554,9 @@ class HeroSeeder extends Seeder
                 ),
                 90 =>
                 array (
-                  'name' => 'Karrie, the Lost Star',
+                  'name' => 'Karrie',
                   'role' => 'Marksman',
-                  'image' => 'Karrie, the Lost Star.jpg',
+                  'image' => 'Karrie.jpg',
                 ),
                 91 =>
                 array (

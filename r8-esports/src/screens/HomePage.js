@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import mobaImg from '../assets/moba1.jpg';
+import navbarBg from '../assets/navbarbackground.jpg';
+import { useNavigate } from 'react-router-dom';
 
 // Add lane options
 const LANE_OPTIONS = [
@@ -62,6 +65,7 @@ export default function HomePage() {
   const [lordTaken, setLordTaken] = useState('');
   const [notes, setNotes] = useState('');
   const [playstyle, setPlaystyle] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch('/api/matches')
@@ -153,13 +157,33 @@ export default function HomePage() {
   }, [modalState]);
 
   return (
-    <div className="min-h-screen" style={{ background: '#181A20' }}>
+    <div className="min-h-screen" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
       {/* Header */}
-      <header className="flex items-center px-8 py-4" style={{ background: '#23232a', borderBottom: '1px solid #23283a' }}>
-        <img src="/logo192.png" alt="Logo" className="h-12 w-12 rounded mr-4" />
+      <header
+        className="flex items-center pl-0 pr-8 py-0"
+        style={{
+          background: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(${navbarBg}) center/cover, #23232a`,
+          borderBottom: '1px solid #23283a',
+          height: '80px'
+        }}
+      >
+        <img
+          src={mobaImg}
+          alt="MOBA"
+          className="h-20 w-44 object-cover cursor-pointer"
+          style={{
+            margin: 0,
+            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to top, transparent 0%, black 20%, black 100%)',
+            WebkitMaskComposite: 'destination-in',
+            maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to top, transparent 0%, black 20%, black 100%)',
+            boxShadow: '4px 0 16px 0 rgba(0,0,0,0.4)'
+          }}
+          onClick={() => navigate('/')}
+        />
         <div className="flex-1 flex items-center">
           <nav className="flex space-x-8 ml-4">
             <button className="text-blue-400 border-b-2 border-blue-400 pb-1 font-semibold">Data Draft</button>
+            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/mock-draft')}>Mock Draft</button>
             <button className="text-gray-400 hover:text-blue-300 transition">Players Statistic</button>
             <button className="text-gray-400 hover:text-blue-300 transition">Match History</button>
           </nav>
@@ -169,17 +193,17 @@ export default function HomePage() {
       {/* Main Content */}
       <main className="flex flex-col items-center py-16 px-2">
         <div className="flex flex-col items-center w-full">
-          <div className="flex flex-col sm:flex-row items-center justify-center mb-8 w-full">
-            <button
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3 rounded-lg shadow mb-4 sm:mb-0 sm:mr-6 transition flex items-center"
-              onClick={() => setModalState('export')}
-            >
-              Export Match
-              <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            <h1 className="text-4xl font-bold text-blue-200 text-center">Cody Banks Draft and Statistics System</h1>
-          </div>
           <div className="w-[1600px] max-w-[95vw] mx-auto mt-12 p-8 rounded-2xl" style={{ background: '#23232a', boxShadow: '0 4px 24px 0 rgba(0,0,0,0.25)', border: '1px solid #23283a' }}>
+            {/* Top-left controls */}
+            <div className="flex flex-row items-center mb-6">
+              <button
+                className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3 rounded-lg shadow transition flex items-center mr-4"
+                onClick={() => setModalState('export')}
+              >
+                Export Match
+              </button>
+              <h1 className="text-2xl font-bold text-blue-200">Cody Banks Draft and Statistics System</h1>
+            </div>
             <table className="w-full text-sm whitespace-nowrap">
               <thead className="sticky top-0 z-10" style={{ background: '#23283a' }}>
                 <tr>
@@ -314,7 +338,7 @@ export default function HomePage() {
       {(modalState === 'export' || modalState === 'heroPicker') && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black bg-opacity-70">
           <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', background: 'rgba(30, 41, 59, 0.85)', zIndex: 1000 }} onClick={() => setModalState('none')} />
-          <div className="modal-box w-full max-w-[110rem] rounded-2xl shadow-2xl p-8 px-20" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1001, borderRadius: 24, background: '#1e293b', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-box w-full max-w-[110rem] rounded-2xl shadow-2xl p-8 px-20" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1001, borderRadius: 24, background: '#101014', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Focus trap to prevent date input from being auto-focused */}
             <button
               type="button"
@@ -369,7 +393,7 @@ export default function HomePage() {
                   className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   onClick={() => { setHeroPickerTarget('blue1'); setHeroPickerMode('ban'); setModalState('heroPicker'); }}
                 >
-                  {banning.blue1.length === 0 ? 'Choose a hero' : banning.blue1.join(', ')}
+                  {banning.blue1.length === 0 ? 'Choose a hero to ban' : banning.blue1.join(', ')}
                 </button>
                 {/* Pick 1 */}
                 <button
@@ -379,7 +403,7 @@ export default function HomePage() {
                 >
                   {Array.isArray(picks.blue[1]) && picks.blue[1].length > 0
                     ? picks.blue[1].filter(p => p && p.lane && p.hero).map(p => p.hero).join(', ')
-                    : 'Choose a hero'}
+                    : 'Choose a hero to pick'}
                 </button>
                 {/* Banning Phase 2 */}
                 <button
@@ -387,7 +411,7 @@ export default function HomePage() {
                   className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   onClick={() => { setHeroPickerTarget('blue2'); setHeroPickerMode('ban'); setModalState('heroPicker'); }}
                 >
-                  {banning.blue2.length === 0 ? 'Choose a hero' : banning.blue2.join(', ')}
+                  {banning.blue2.length === 0 ? 'Choose a hero to ban' : banning.blue2.join(', ')}
                 </button>
                 {/* Pick 2 */}
                 <button
@@ -397,7 +421,7 @@ export default function HomePage() {
                 >
                   {Array.isArray(picks.blue[2]) && picks.blue[2].filter(p => p && p.hero).length > 0
                     ? picks.blue[2].filter(p => p && p.hero).map(p => p.hero).join(', ')
-                    : 'Choose a hero'}
+                    : 'Choose a hero to pick'}
                 </button>
               </div>
               {/* Row 2: Red Team */}
@@ -415,7 +439,7 @@ export default function HomePage() {
                   className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   onClick={() => { setHeroPickerTarget('red1'); setHeroPickerMode('ban'); setModalState('heroPicker'); }}
                 >
-                  {banning.red1.length === 0 ? 'Choose a hero' : banning.red1.join(', ')}
+                  {banning.red1.length === 0 ? 'Choose a hero to ban' : banning.red1.join(', ')}
                 </button>
                 {/* Pick 1 */}
                 <button
@@ -425,7 +449,7 @@ export default function HomePage() {
                 >
                   {Array.isArray(picks.red[1]) && picks.red[1].length > 0
                     ? picks.red[1].filter(p => p && p.lane && p.hero).map(p => p.hero).join(', ')
-                    : 'Choose a hero'}
+                    : 'Choose a hero to pick'}
                 </button>
                 {/* Banning Phase 2 */}
                 <button
@@ -433,7 +457,7 @@ export default function HomePage() {
                   className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   onClick={() => { setHeroPickerTarget('red2'); setHeroPickerMode('ban'); setModalState('heroPicker'); }}
                 >
-                  {banning.red2.length === 0 ? 'Choose a hero' : banning.red2.join(', ')}
+                  {banning.red2.length === 0 ? 'Choose a hero to ban' : banning.red2.join(', ')}
                 </button>
                 {/* Pick 2 */}
                 <button
@@ -443,7 +467,7 @@ export default function HomePage() {
                 >
                   {Array.isArray(picks.red[2]) && picks.red[2].filter(p => p && p.hero).length > 0
                     ? picks.red[2].filter(p => p && p.hero).map(p => p.hero).join(', ')
-                    : 'Choose a hero'}
+                    : 'Choose a hero to pick'}
                 </button>
               </div>
               {/* Turtle/Lord taken, Notes, Playstyle */}
