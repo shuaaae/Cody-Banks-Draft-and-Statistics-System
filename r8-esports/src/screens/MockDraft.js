@@ -129,8 +129,8 @@ export default function MockDraft() {
           <nav className="flex space-x-8 ml-4">
             <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/home')}>Data Draft</button>
             <button className="text-blue-400 border-b-2 border-blue-400 pb-1 font-semibold">Mock Draft</button>
-            <button className="text-gray-400 hover:text-blue-300 transition">Players Statistic</button>
-            <button className="text-gray-400 hover:text-blue-300 transition">Match History</button>
+            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/players-statistic')}>Players Statistic</button>
+            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/team-history')}>Team History</button>
           </nav>
         </div>
       </header>

@@ -4,6 +4,8 @@ import LoadingScreen from './screens/loadingScreen';
 import HomePage from './screens/HomePage';
 import LandingPage from './screens/LandingPage';
 import MockDraft from './screens/MockDraft';
+import PlayersStatistic from './screens/PlayersStatistic';
+import TeamHistory from './screens/TeamHistory';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 
 function AppRoutes({ setLoading }) {
@@ -20,6 +22,8 @@ function AppRoutes({ setLoading }) {
       <Route path="/" element={<LandingPage />} />
       <Route path="/home" element={<HomePage />} />
       <Route path="/mock-draft" element={<MockDraft />} />
+      <Route path="/players-statistic" element={<PlayersStatistic />} />
+      <Route path="/team-history" element={<TeamHistory />} />
     </Routes>
   );
 }

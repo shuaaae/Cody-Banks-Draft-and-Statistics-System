@@ -65,20 +65,39 @@ export default function HomePage() {
   const [lordTaken, setLordTaken] = useState('');
   const [notes, setNotes] = useState('');
   const [playstyle, setPlaystyle] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState('All Teams');
+  const [allTeams, setAllTeams] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetch('/api/matches')
       .then(res => res.json())
       .then(data => {
-        console.log(data);
-        setMatches(data);
+        // Collect all unique team names
+        const teamsSet = new Set();
+        data.forEach(match => {
+          if (match.teams) {
+            match.teams.forEach(team => {
+              if (team.team) teamsSet.add(team.team);
+            });
+          }
+        });
+        setAllTeams(['All Teams', ...Array.from(teamsSet)]);
+        // Filter matches for the selected team
+        let filtered = data;
+        if (selectedTeam && selectedTeam !== 'All Teams') {
+          const teamName = selectedTeam.trim().toLowerCase();
+          filtered = data.filter(match =>
+            match.teams && match.teams.some(team => (team.team || '').trim().toLowerCase() === teamName)
+          );
+        }
+        setMatches(filtered);
       })
       .catch(err => {
         setMatches([]);
         console.error(err);
       });
-  }, []);
+  }, [selectedTeam]);
 
   useEffect(() => {
     fetch('/api/heroes')
@@ -106,17 +125,17 @@ export default function HomePage() {
           team: blueTeam,
           team_color: "blue",
           banning_phase1: banning.blue1,
-          picks1: picks.blue[1].map(p => p.hero),
+          picks1: picks.blue[1].map(p => ({ lane: p.lane, hero: p.hero })),
           banning_phase2: banning.blue2,
-          picks2: picks.blue[2].map(p => p.hero)
+          picks2: picks.blue[2].map(p => ({ lane: p.lane, hero: p.hero }))
         },
         {
           team: redTeam,
           team_color: "red",
           banning_phase1: banning.red1,
-          picks1: picks.red[1].map(p => p.hero),
+          picks1: picks.red[1].map(p => ({ lane: p.lane, hero: p.hero })),
           banning_phase2: banning.red2,
-          picks2: picks.red[2].map(p => p.hero)
+          picks2: picks.red[2].map(p => ({ lane: p.lane, hero: p.hero }))
         }
       ]
     };
@@ -128,6 +147,8 @@ export default function HomePage() {
         body: JSON.stringify(payload)
       });
       if (response.ok) {
+        // Save the exported match to localStorage for Player Statistics
+        localStorage.setItem('latestMatch', JSON.stringify(payload));
         setModalState('none');
         setTurtleTaken('');
         setLordTaken('');
@@ -184,8 +205,8 @@ export default function HomePage() {
           <nav className="flex space-x-8 ml-4">
             <button className="text-blue-400 border-b-2 border-blue-400 pb-1 font-semibold">Data Draft</button>
             <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/mock-draft')}>Mock Draft</button>
-            <button className="text-gray-400 hover:text-blue-300 transition">Players Statistic</button>
-            <button className="text-gray-400 hover:text-blue-300 transition">Match History</button>
+            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/players-statistic')}>Players Statistic</button>
+            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/team-history')}>Team History</button>
           </nav>
         </div>
       </header>
@@ -202,7 +223,16 @@ export default function HomePage() {
               >
                 Export Match
               </button>
-              <h1 className="text-2xl font-bold text-blue-200">Cody Banks Draft and Statistics System</h1>
+              <select
+                className="ml-2 px-4 py-2 rounded bg-gray-800 text-blue-200 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={selectedTeam}
+                onChange={e => setSelectedTeam(e.target.value)}
+              >
+                {allTeams.map(team => (
+                  <option key={team} value={team}>{team}</option>
+                ))}
+              </select>
+              <h1 className="text-2xl font-bold text-blue-200 ml-4">Cody Banks Draft and Statistics System</h1>
             </div>
             <table className="w-full text-sm whitespace-nowrap">
               <thead className="sticky top-0 z-10" style={{ background: '#23283a' }}>
