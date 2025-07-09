@@ -299,7 +299,8 @@ export default function HomePage() {
                         <td className="py-3 px-1 text-center align-middle min-w-[140px]">
                           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                             {Array.isArray(team.picks1)
-                              ? team.picks1.map(heroName => {
+                              ? team.picks1.map(pickObj => {
+                                  const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                                   const hero = heroList.find(h => h.name === heroName);
                                   return hero ? (
                                     <img
@@ -335,7 +336,8 @@ export default function HomePage() {
                         <td className="py-3 px-1 text-center align-middle min-w-[140px]">
                           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                             {Array.isArray(team.picks2)
-                              ? team.picks2.map(heroName => {
+                              ? team.picks2.map(pickObj => {
+                                  const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                                   const hero = heroList.find(h => h.name === heroName);
                                   return hero ? (
                                     <img
@@ -742,7 +744,8 @@ export default function HomePage() {
                 </div>
                 {/* Picks vertical */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {getPicks(blueTeam).map((heroName, idx) => {
+                  {getPicks(blueTeam).map((pickObj, idx) => {
+                    const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                     const img = getHeroImg(heroName);
                     return (
                       <div key={idx} style={{ margin: 0 }}>
@@ -776,7 +779,8 @@ export default function HomePage() {
                 </div>
                 {/* Picks vertical */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {getPicks(redTeam).map((heroName, idx) => {
+                  {getPicks(redTeam).map((pickObj, idx) => {
+                    const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                     const img = getHeroImg(heroName);
                     return (
                       <div key={idx} style={{ margin: 0 }}>
