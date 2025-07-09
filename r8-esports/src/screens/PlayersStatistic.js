@@ -21,14 +21,14 @@ const PlayerCard = ({ lane, player, hero, highlight, onClick }) => {
       style={{ borderRadius: 0, minWidth: 0, border: 'none' }}
       onClick={onClick}
     >
-      <div className="relative flex-shrink-0 z-20" style={{ width: 210, height: 230, marginLeft: -30 }}>
+      <div className="relative flex-shrink-0 z-20" style={{ width: 140, height: 160, marginLeft: -30 }}>
         <img
           src={player.teamLogo}
           alt="Team Logo BG"
           className="absolute left-[70%] top-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
           style={{
-            width: 220,
-            height: 220,
+            width: 400,
+            height: 400,
             opacity: 0.3,
             zIndex: 1,
             objectFit: 'contain',
@@ -38,8 +38,8 @@ const PlayerCard = ({ lane, player, hero, highlight, onClick }) => {
         <img
           src={player.photo ? player.photo : defaultPlayer}
           alt="Player"
-          className="relative w-[210px] h-[230px] object-contain z-10"
-          style={{ background: 'none', border: 'none', boxShadow: 'none' }}
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[140px] h-[160px] object-cover rounded-xl z-10"
+          style={{ objectPosition: 'center' }}
         />
       </div>
       <div className="flex-1 ml-8 min-w-0 flex flex-col justify-center z-30">
@@ -78,17 +78,17 @@ export default function PlayersStatistic() {
   const [lanePlayers, setLanePlayers] = useState(null);
   const [modalInfo, setModalInfo] = useState(null);
   const [teamPlayers, setTeamPlayers] = useState(null);
-  const [playerPhotos, setPlayerPhotos] = useState({});
   const fileInputRef = useRef();
   const [uploadingPlayer, setUploadingPlayer] = useState(null);
   const [players, setPlayers] = useState([]);
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [heroStats, setHeroStats] = useState([]);
 
   useEffect(() => {
     fetch('/api/players')
       .then(res => res.json())
-      .then(data => setPlayers(data));
+      .then(data => setPlayers(data.map(p => ({ ...p, teamLogo }))));
   }, []);
 
   useEffect(() => {
@@ -111,6 +111,16 @@ export default function PlayersStatistic() {
       setTeamPlayers(null);
     }
   }, []);
+
+  useEffect(() => {
+    if (modalInfo && modalInfo.player && modalInfo.player.name) {
+      fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-stats`)
+        .then(res => res.json())
+        .then(data => setHeroStats(data));
+    } else {
+      setHeroStats([]);
+    }
+  }, [modalInfo]);
 
   function getPlayerNameForLane(laneKey, laneIdx) {
     if (!teamPlayers || !teamPlayers.players) return PLAYER.name;
@@ -136,30 +146,6 @@ export default function PlayersStatistic() {
     return teamPlayers && teamPlayers.teamName ? teamPlayers.teamName : 'Unknown Team';
   }
 
-  async function handlePhotoUpload(e, playerName) {
-    const file = e.target.files[0];
-    if (!file || !playerName) return;
-    setUploadingPlayer(playerName);
-    const formData = new FormData();
-    formData.append('photo', file);
-    const playerId = 1;
-    try {
-      const response = await fetch(`/api/players/${playerId}/photo`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setPlayerPhotos(prev => ({ ...prev, [playerName]: data.photo }));
-      } else {
-        alert('Failed to upload photo');
-      }
-    } catch (err) {
-      alert('Error uploading photo');
-    }
-    setUploadingPlayer(null);
-  }
-
   function handleFileSelect(e, playerName) {
     const file = e.target.files[0];
     if (!file || !playerName) return;
@@ -172,21 +158,28 @@ export default function PlayersStatistic() {
   async function handleConfirmUpload() {
     if (!pendingPhoto) return;
     setUploadingPlayer(pendingPhoto.playerName);
-    const formData = new FormData();
-    formData.append('photo', pendingPhoto.file);
     try {
-      const response = await fetch(`/api/players/${pendingPhoto.playerId}/photo`, {
+      const formData = new FormData();
+      formData.append('photo', pendingPhoto.file);
+      formData.append('playerName', pendingPhoto.playerName);
+      const response = await fetch(`/api/players/photo-by-name`, {
         method: 'POST',
         body: formData,
       });
       if (response.ok) {
         const data = await response.json();
-        // Update players array with new photo URL
-        setPlayers(prev => prev.map(p =>
-          p.id === pendingPhoto.playerId ? { ...p, photo: data.photo } : p
-        ));
-        setPlayerPhotos(prev => ({ ...prev, [pendingPhoto.playerName]: data.photo }));
-        // Update teamPlayers (if present) so the card and modal use the new photo
+        setPlayers(prev => {
+          const idx = prev.findIndex(p => p.name === pendingPhoto.playerName);
+          if (idx !== -1) {
+            // Update existing player
+            return prev.map(p =>
+              p.name === pendingPhoto.playerName ? { ...p, photo: data.photo } : p
+            );
+          } else {
+            // Add new player, include teamLogo property
+            return [...prev, { ...data.player, teamLogo }];
+          }
+        });
         setTeamPlayers(prev => {
           if (!prev || !prev.players) return prev;
           return {
@@ -290,9 +283,9 @@ export default function PlayersStatistic() {
       {/* Player modal */}
       {modalInfo && !showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-          <div className="bg-[#23232a] rounded-2xl shadow-2xl p-8 min-w-[340px] max-w-[90vw] relative flex flex-col items-center">
+          <div className="bg-[#23232a] rounded-2xl shadow-2xl p-8 min-w-[340px] max-w-[90vw] relative flex flex-row items-center">
             <button className="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl font-bold" onClick={() => setModalInfo(null)}>&times;</button>
-            <div className="mb-4 flex flex-col items-center">
+            <div className="flex flex-col items-center justify-center mr-8">
               <input
                 type="file"
                 accept="image/*"
@@ -306,13 +299,14 @@ export default function PlayersStatistic() {
                   return (player && player.photo) ? player.photo : modalInfo.player.photo;
                 })()}
                 alt="Player"
-                className="w-[180px] h-[210px] object-cover mb-2 rounded-xl cursor-pointer"
+                className="w-[120px] h-[140px] object-cover mb-2 rounded-xl cursor-pointer"
                 onClick={() => fileInputRef.current && fileInputRef.current.click()}
                 title="Click to upload new photo"
-                style={{ opacity: uploadingPlayer === modalInfo.player.name ? 0.5 : 1 }}
+                style={{ opacity: uploadingPlayer === modalInfo.player.name ? 0.5 : 1, objectPosition: 'center' }}
               />
               {uploadingPlayer === modalInfo.player.name && <div className="text-blue-300 mb-2">Uploading...</div>}
-              <img src={modalInfo.player.teamLogo} alt="Team Logo" className="w-16 h-16 object-contain mb-2" style={{ opacity: 0.4 }} />
+            </div>
+            <div className="flex flex-col items-start justify-center ml-4">
               <div className="text-white text-xl font-bold mb-1">{modalInfo.player.name}</div>
               <div className="flex items-center gap-2 mb-2">
                 <img src={modalInfo.lane.icon} alt={modalInfo.lane.label} className="w-8 h-8 object-contain" />
@@ -321,8 +315,38 @@ export default function PlayersStatistic() {
               {modalInfo.hero && (
                 <div className="text-blue-300 text-lg font-semibold">Hero: {modalInfo.hero}</div>
               )}
+              {/* Hero stats table */}
+              <div className="mt-4 w-full">
+                <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE (Scrim)</div>
+                {heroStats.length > 0 ? (
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="text-left px-2 py-1">Hero</th>
+                        <th className="text-green-500 px-2 py-1">WIN</th>
+                        <th className="text-red-500 px-2 py-1">LOSE</th>
+                        <th className="px-2 py-1">TOTAL</th>
+                        <th className="text-yellow-400 px-2 py-1">Success rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {heroStats.map((row, idx) => (
+                        <tr key={row.hero + idx}>
+                          <td className="px-2 py-1 text-white font-semibold">{row.hero}</td>
+                          <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
+                          <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
+                          <td className="px-2 py-1 text-center">{row.total}</td>
+                          <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-gray-400">No hero stats available.</div>
+                )}
+              </div>
+              <div className="text-gray-300 text-left mt-2">More player/lane/hero details can go here.</div>
             </div>
-            <div className="text-gray-300 text-center mt-2">More player/lane/hero details can go here.</div>
           </div>
         </div>
       )}
@@ -336,6 +360,7 @@ export default function PlayersStatistic() {
               src={URL.createObjectURL(pendingPhoto.file)}
               alt="Preview"
               className="w-[180px] h-[210px] object-cover mb-4 rounded-xl"
+              style={{ objectPosition: 'center' }}
             />
             <div className="flex gap-6">
               <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold" onClick={handleConfirmUpload}>Confirm</button>
@@ -343,8 +368,6 @@ export default function PlayersStatistic() {
             </div>
           </div>
         </div>
-
-        
       )}
     </div>
   );

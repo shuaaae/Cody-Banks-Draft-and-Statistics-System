@@ -125,9 +125,9 @@ export default function HomePage() {
           team: blueTeam,
           team_color: "blue",
           banning_phase1: banning.blue1,
-          picks1: picks.blue[1].map(p => ({ lane: p.lane, hero: p.hero })),
+          picks1: picks.blue[1].map(p => ({ lane: p.lane, hero: p.hero, player: p.lane })),
           banning_phase2: banning.blue2,
-          picks2: picks.blue[2].map(p => ({ lane: p.lane, hero: p.hero }))
+          picks2: picks.blue[2].map(p => ({ lane: p.lane, hero: p.hero, player: p.lane }))
         },
         {
           team: redTeam,
@@ -221,8 +221,8 @@ export default function HomePage() {
                 className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3 rounded-lg shadow transition flex items-center mr-4"
                 onClick={() => setModalState('export')}
               >
-                Export Match
-              </button>
+              Export Match
+            </button>
               <select
                 className="ml-2 px-4 py-2 rounded bg-gray-800 text-blue-200 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={selectedTeam}
@@ -233,7 +233,7 @@ export default function HomePage() {
                 ))}
               </select>
               <h1 className="text-2xl font-bold text-blue-200 ml-4">Cody Banks Draft and Statistics System</h1>
-            </div>
+          </div>
             <table className="w-full text-sm whitespace-nowrap">
               <thead className="sticky top-0 z-10" style={{ background: '#23283a' }}>
                 <tr>
