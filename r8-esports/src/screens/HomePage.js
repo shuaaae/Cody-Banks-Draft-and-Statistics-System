@@ -257,6 +257,7 @@ export default function HomePage() {
             <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/mock-draft')}>Mock Draft</button>
             <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/players-statistic')}>Players Statistic</button>
             <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/team-history')}>Team History</button>
+            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/weekly-report')}>Weekly Report</button>
           </nav>
         </div>
       </header>

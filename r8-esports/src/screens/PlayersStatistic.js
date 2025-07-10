@@ -261,14 +261,14 @@ export default function PlayersStatistic() {
             maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to top, transparent 0%, black 20%, black 100%)',
             boxShadow: '4px 0 16px 0 rgba(0,0,0,0.4)'
           }}
-          onClick={() => navigate('/')}
-        />
+          onClick={() => navigate('/')} />
         <div className="flex-1 flex items-center">
           <nav className="flex space-x-8 ml-4">
             <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/home')}>Data Draft</button>
             <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/mock-draft')}>Mock Draft</button>
             <button className="text-blue-400 border-b-2 border-blue-400 pb-1 font-semibold">Players Statistic</button>
             <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/team-history')}>Team History</button>
+            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/weekly-report')}>Weekly Report</button>
           </nav>
         </div>
       </header>
