@@ -91,6 +91,11 @@ export default function HomePage() {
             match.teams && match.teams.some(team => (team.team || '').trim().toLowerCase() === teamName)
           );
         }
+        // Sort latest to oldest by match_date and id
+        filtered.sort((a, b) => {
+          if (a.match_date === b.match_date) return b.id - a.id;
+          return new Date(b.match_date) - new Date(a.match_date);
+        });
         setMatches(filtered);
       })
       .catch(err => {
@@ -112,6 +117,25 @@ export default function HomePage() {
     const blueTeam = document.getElementById('blue-team-input').value;
     const redTeam = document.getElementById('red-team-input').value;
 
+    // Get player assignments for blue and red teams from localStorage
+    let bluePlayers = [];
+    let redPlayers = [];
+    try {
+      const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
+      if (latestTeam && latestTeam.teamName && latestTeam.players) {
+        if (latestTeam.teamName === blueTeam) bluePlayers = latestTeam.players;
+        if (latestTeam.teamName === redTeam) redPlayers = latestTeam.players;
+      }
+      // If you support multiple teams in localStorage, you may need to adjust this logic
+    } catch (e) {}
+
+    // Helper to get player name by lane for a team
+    const getPlayerName = (playersArr, laneKey) => {
+      if (!Array.isArray(playersArr)) return '';
+      const found = playersArr.find(p => p.role === laneKey);
+      return found && found.name ? found.name : '';
+    };
+
     // Use your state for bans and picks
     const payload = {
       match_date: matchDate,
@@ -125,17 +149,37 @@ export default function HomePage() {
           team: blueTeam,
           team_color: "blue",
           banning_phase1: banning.blue1,
-          picks1: picks.blue[1].map(p => ({ lane: p.lane, hero: p.hero, player: p.lane })),
+          picks1: picks.blue[1].map(p => ({
+            team: blueTeam,
+            lane: p.lane,
+            hero: p.hero,
+            player: getPlayerName(bluePlayers, p.lane)
+          })),
           banning_phase2: banning.blue2,
-          picks2: picks.blue[2].map(p => ({ lane: p.lane, hero: p.hero, player: p.lane }))
+          picks2: picks.blue[2].map(p => ({
+            team: blueTeam,
+            lane: p.lane,
+            hero: p.hero,
+            player: getPlayerName(bluePlayers, p.lane)
+          }))
         },
         {
           team: redTeam,
           team_color: "red",
           banning_phase1: banning.red1,
-          picks1: picks.red[1].map(p => ({ lane: p.lane, hero: p.hero })),
+          picks1: picks.red[1].map(p => ({
+            team: redTeam,
+            lane: p.lane,
+            hero: p.hero,
+            player: getPlayerName(redPlayers, p.lane)
+          })),
           banning_phase2: banning.red2,
-          picks2: picks.red[2].map(p => ({ lane: p.lane, hero: p.hero }))
+          picks2: picks.red[2].map(p => ({
+            team: redTeam,
+            lane: p.lane,
+            hero: p.hero,
+            player: getPlayerName(redPlayers, p.lane)
+          }))
         }
       ]
     };
@@ -154,12 +198,18 @@ export default function HomePage() {
         setLordTaken('');
         setNotes('');
         setPlaystyle('');
-        // Fetch the latest match and prepend it to the matches list
-        const newMatchResponse = await fetch('/api/matches');
-        const allMatches = await newMatchResponse.json();
-        if (allMatches && allMatches.length > 0) {
-          setMatches(prev => [allMatches[0], ...prev.filter(m => m.id !== allMatches[0].id)]);
-        }
+        // Refetch all matches and sort latest to oldest
+        fetch('/api/matches')
+          .then(res => res.json())
+          .then(allMatches => {
+            if (allMatches && allMatches.length > 0) {
+              allMatches.sort((a, b) => {
+                if (a.match_date === b.match_date) return b.id - a.id;
+                return new Date(b.match_date) - new Date(a.match_date);
+              });
+              setMatches(allMatches);
+            }
+          });
       } else {
         alert('Failed to export match');
       }

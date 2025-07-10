@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import mobaImg from '../assets/moba1.jpg';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,9 @@ import midIcon from '../assets/mid.jpg';
 import junglerIcon from '../assets/jungle.jpg';
 import goldIcon from '../assets/gold.jpg';
 import roamIcon from '../assets/roam.jpg';
+import { Bar } from 'react-chartjs-2';
+import { Chart, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip } from 'chart.js';
+Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip);
 
 // PlayerCard must be placed BEFORE PlayersStatistic
 const PlayerCard = ({ lane, player, hero, highlight, onClick }) => {
@@ -50,9 +53,7 @@ const PlayerCard = ({ lane, player, hero, highlight, onClick }) => {
             <span className="text-yellow-300 text-xs font-extrabold tracking-widest">{lane.label}</span>
           </div>
         </div>
-        {hero && (
-          <div className="mt-2 text-blue-300 text-sm font-semibold">Hero: {hero}</div>
-        )}
+        {/* Removed hero name from PlayerCard */}
       </div>
     </button>
   );
@@ -84,12 +85,33 @@ export default function PlayersStatistic() {
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [heroStats, setHeroStats] = useState([]);
+  const [allPlayerStats, setAllPlayerStats] = useState({}); // NEW: cache for all player stats
+  const [heroH2HStats, setHeroH2HStats] = useState([]); // NEW: H2H stats
 
   useEffect(() => {
     fetch('/api/players')
       .then(res => res.json())
       .then(data => setPlayers(data.map(p => ({ ...p, teamLogo }))));
   }, []);
+
+  // Pre-fetch all player stats for the current team
+  useEffect(() => {
+    if (teamPlayers && teamPlayers.players && teamPlayers.teamName) {
+      const fetchAllStats = async () => {
+        const statsObj = {};
+        await Promise.all(
+          teamPlayers.players.map(async (p) => {
+            if (!p.name) return;
+            const res = await fetch(`/api/players/${encodeURIComponent(p.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}`);
+            const data = await res.json();
+            statsObj[p.name] = data;
+          })
+        );
+        setAllPlayerStats(statsObj);
+      };
+      fetchAllStats();
+    }
+  }, [teamPlayers]);
 
   useEffect(() => {
     const latestMatch = JSON.parse(localStorage.getItem('latestMatch'));
@@ -112,15 +134,38 @@ export default function PlayersStatistic() {
     }
   }, []);
 
+  const getCurrentTeamName = useCallback(() => {
+    return teamPlayers && teamPlayers.teamName ? teamPlayers.teamName : 'Unknown Team';
+  }, [teamPlayers]);
+
+  // Use cached stats for modal, fallback to fetch if not available
   useEffect(() => {
     if (modalInfo && modalInfo.player && modalInfo.player.name) {
-      fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-stats`)
-        .then(res => res.json())
-        .then(data => setHeroStats(data));
+      const teamName = getCurrentTeamName();
+      const cached = allPlayerStats[modalInfo.player.name];
+      if (cached) {
+        setHeroStats(cached);
+      } else {
+        fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamName)}`)
+          .then(res => res.json())
+          .then(data => setHeroStats(data));
+      }
     } else {
       setHeroStats([]);
     }
-  }, [modalInfo]);
+  }, [modalInfo, getCurrentTeamName, allPlayerStats]);
+
+  // Fetch H2H stats for modal
+  useEffect(() => {
+    if (modalInfo && modalInfo.player && modalInfo.player.name) {
+      const teamName = getCurrentTeamName();
+      fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamName)}`)
+        .then(res => res.json())
+        .then(data => setHeroH2HStats(data));
+    } else {
+      setHeroH2HStats([]);
+    }
+  }, [modalInfo, getCurrentTeamName]);
 
   function getPlayerNameForLane(laneKey, laneIdx) {
     if (!teamPlayers || !teamPlayers.players) return PLAYER.name;
@@ -140,10 +185,6 @@ export default function PlayersStatistic() {
       ? lanePlayers.find(p => p && p.lane && p.lane.toLowerCase() === laneKey)
       : null;
     return found ? found.hero : null;
-  }
-
-  function getCurrentTeamName() {
-    return teamPlayers && teamPlayers.teamName ? teamPlayers.teamName : 'Unknown Team';
   }
 
   function handleFileSelect(e, playerName) {
@@ -283,7 +324,7 @@ export default function PlayersStatistic() {
       {/* Player modal */}
       {modalInfo && !showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-          <div className="bg-[#23232a] rounded-2xl shadow-2xl p-8 min-w-[340px] max-w-[90vw] relative flex flex-row items-center">
+          <div className="bg-[#23232a] rounded-2xl shadow-2xl p-8 min-w-[1100px] max-w-[98vw] min-h-[420px] max-h-[90vh] relative flex flex-row items-center" style={{ width: '1300px' }}>
             <button className="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl font-bold" onClick={() => setModalInfo(null)}>&times;</button>
             <div className="flex flex-col items-center justify-center mr-8">
               <input
@@ -306,46 +347,140 @@ export default function PlayersStatistic() {
               />
               {uploadingPlayer === modalInfo.player.name && <div className="text-blue-300 mb-2">Uploading...</div>}
             </div>
-            <div className="flex flex-col items-start justify-center ml-4">
-              <div className="text-white text-xl font-bold mb-1">{modalInfo.player.name}</div>
-              <div className="flex items-center gap-2 mb-2">
-                <img src={modalInfo.lane.icon} alt={modalInfo.lane.label} className="w-8 h-8 object-contain" />
-                <span className="text-yellow-300 text-base font-extrabold tracking-widest">{modalInfo.lane.label}</span>
-              </div>
-              {modalInfo.hero && (
-                <div className="text-blue-300 text-lg font-semibold">Hero: {modalInfo.hero}</div>
-              )}
-              {/* Hero stats table */}
-              <div className="mt-4 w-full">
-                <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE (Scrim)</div>
-                {heroStats.length > 0 ? (
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr>
-                        <th className="text-left px-2 py-1">Hero</th>
-                        <th className="text-green-500 px-2 py-1">WIN</th>
-                        <th className="text-red-500 px-2 py-1">LOSE</th>
-                        <th className="px-2 py-1">TOTAL</th>
-                        <th className="text-yellow-400 px-2 py-1">Success rate</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {heroStats.map((row, idx) => (
-                        <tr key={row.hero + idx}>
-                          <td className="px-2 py-1 text-white font-semibold">{row.hero}</td>
-                          <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
-                          <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
-                          <td className="px-2 py-1 text-center">{row.total}</td>
-                          <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
+            {/* Right section: two columns (tables left, chart right) */}
+            <div className="flex flex-row items-start justify-start flex-1 min-w-0 gap-8">
+              {/* Left: Tables */}
+              <div className="flex flex-col items-start justify-start flex-1 min-w-0">
+                <div className="text-white text-xl font-bold mb-1">{modalInfo.player.name}</div>
+                <div className="flex items-center gap-2 mb-2">
+                  <img src={modalInfo.lane.icon} alt={modalInfo.lane.label} className="w-8 h-8 object-contain" />
+                  <span className="text-yellow-300 text-base font-extrabold tracking-widest">{modalInfo.lane.label}</span>
+                </div>
+                {/* Hero stats table */}
+                <div className="mt-4 w-full">
+                  <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE (Scrim)</div>
+                  {heroStats.length > 0 ? (
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="text-left px-2 py-1">Hero</th>
+                          <th className="text-green-500 px-2 py-1">WIN</th>
+                          <th className="text-red-500 px-2 py-1">LOSE</th>
+                          <th className="px-2 py-1">TOTAL</th>
+                          <th className="text-yellow-400 px-2 py-1">Success rate</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="text-gray-400">No hero stats available.</div>
+                      </thead>
+                      <tbody>
+                        {heroStats.map((row, idx) => (
+                          <tr key={row.hero + idx}>
+                            <td className="px-2 py-1 text-white font-semibold">{row.hero}</td>
+                            <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
+                            <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
+                            <td className="px-2 py-1 text-center">{row.total}</td>
+                            <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-gray-400">No hero stats available.</div>
+                  )}
+                </div>
+                {/* H2H stats table */}
+                {heroH2HStats.length > 0 && (
+                  <div className="mt-8 w-full">
+                    <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE vs ENEMY (H2H)</div>
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="text-left px-2 py-1">Hero Used</th>
+                          <th className="text-left px-2 py-1">Enemy</th>
+                          <th className="text-green-500 px-2 py-1">WIN</th>
+                          <th className="text-red-500 px-2 py-1">LOSE</th>
+                          <th className="px-2 py-1">TOTAL</th>
+                          <th className="text-yellow-400 px-2 py-1">Success rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {heroH2HStats.map((row, idx) => (
+                          <tr key={row.player_hero + row.enemy_hero + idx}>
+                            <td className="px-2 py-1 text-white font-semibold">{row.player_hero}</td>
+                            <td className="px-2 py-1 text-blue-300 font-semibold">{row.enemy_hero}</td>
+                            <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
+                            <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
+                            <td className="px-2 py-1 text-center">{row.total}</td>
+                            <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
+                <div className="text-gray-300 text-left mt-2">
+                  {heroStats.length === 0 && (
+                    'More player/lane/hero details can go here.'
+                  )}
+                </div>
               </div>
-              <div className="text-gray-300 text-left mt-2">More player/lane/hero details can go here.</div>
+              {/* Right: Chart */}
+              {heroStats.length > 0 && (
+                <div className="flex flex-col items-center justify-start min-w-[400px] max-w-[500px] w-full">
+                  <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO PERFORMANCE CHART</div>
+                  <Bar
+                    data={{
+                      labels: heroStats.map(row => row.hero),
+                      datasets: [
+                        {
+                          label: 'WIN',
+                          data: heroStats.map(row => row.win),
+                          backgroundColor: '#3b82f6',
+                        },
+                        {
+                          label: 'LOSE',
+                          data: heroStats.map(row => row.lose),
+                          backgroundColor: '#f87171',
+                        },
+                        {
+                          label: 'TOTAL',
+                          data: heroStats.map(row => row.total),
+                          backgroundColor: '#22c55e',
+                        },
+                        {
+                          label: 'SUCCESS RATE',
+                          data: heroStats.map(row => row.winrate),
+                          type: 'line',
+                          borderColor: '#facc15',
+                          backgroundColor: '#facc15',
+                          yAxisID: 'y1',
+                          fill: false,
+                          tension: 0.4,
+                          pointRadius: 4,
+                          pointBackgroundColor: '#facc15',
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { mode: 'index', intersect: false },
+                      },
+                      scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Count' } },
+                        y1: {
+                          beginAtZero: true,
+                          position: 'right',
+                          title: { display: true, text: 'Success Rate (%)' },
+                          min: 0,
+                          max: 100,
+                          grid: { drawOnChartArea: false },
+                        },
+                      },
+                    }}
+                    height={350}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

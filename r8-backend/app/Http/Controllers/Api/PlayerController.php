@@ -111,4 +111,127 @@ class PlayerController extends Controller
         usort($result, function($a, $b) { return $b['total'] <=> $a['total']; });
         return response()->json($result);
     }
+
+    public function heroStatsByTeam(Request $request, $playerName)
+    {
+        $teamName = $request->query('teamName');
+        $matchTeams = \App\Models\MatchTeam::with('match')->get();
+        $heroStats = [];
+
+        foreach ($matchTeams as $team) {
+            $match = $team->match;
+            $isWin = $team->team === $match->winner;
+            // Combine picks1 and picks2
+            $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
+            foreach ($picks as $pick) {
+                // Only count if both player and team match
+                if (
+                    is_array($pick) &&
+                    isset($pick['hero']) &&
+                    isset($pick['player']) &&
+                    isset($pick['team']) &&
+                    strtolower($pick['player']) === strtolower($playerName) &&
+                    strtolower($pick['team']) === strtolower($teamName)
+                ) {
+                    $hero = $pick['hero'];
+                } else {
+                    continue;
+                }
+                if (!isset($heroStats[$hero])) {
+                    $heroStats[$hero] = ['win' => 0, 'lose' => 0, 'total' => 0];
+                }
+                $heroStats[$hero]['total']++;
+                if ($isWin) {
+                    $heroStats[$hero]['win']++;
+                } else {
+                    $heroStats[$hero]['lose']++;
+                }
+            }
+        }
+        // Calculate winrate
+        $result = [];
+        foreach ($heroStats as $hero => $stat) {
+            $rate = $stat['total'] > 0 ? round($stat['win'] / $stat['total'] * 100) : 0;
+            $result[] = [
+                'hero' => $hero,
+                'win' => $stat['win'],
+                'lose' => $stat['lose'],
+                'total' => $stat['total'],
+                'winrate' => $rate
+            ];
+        }
+        // Sort by total desc
+        usort($result, function($a, $b) { return $b['total'] <=> $a['total']; });
+        return response()->json($result);
+    }
+
+    public function heroH2HStatsByTeam(Request $request, $playerName)
+    {
+        $teamName = $request->query('teamName');
+        $matchTeams = \App\Models\MatchTeam::with('match')->get();
+        $h2hStats = [];
+
+        foreach ($matchTeams as $team) {
+            $match = $team->match;
+            $isWin = $team->team === $match->winner;
+            $teamColor = $team->team_color ?? null;
+            // Find the enemy team in the same match
+            $enemyTeam = $match->teams->first(function($t) use ($team) {
+                return $t->id !== $team->id;
+            });
+            if (!$enemyTeam) continue;
+            // Combine picks1 and picks2 for both teams
+            $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
+            $enemyPicks = array_merge($enemyTeam->picks1 ?? [], $enemyTeam->picks2 ?? []);
+            foreach ($picks as $pick) {
+                if (
+                    is_array($pick) &&
+                    isset($pick['hero']) &&
+                    isset($pick['player']) &&
+                    isset($pick['team']) &&
+                    isset($pick['lane']) &&
+                    strtolower($pick['player']) === strtolower($playerName) &&
+                    strtolower($pick['team']) === strtolower($teamName)
+                ) {
+                    $playerHero = $pick['hero'];
+                    $lane = $pick['lane'];
+                    // Find enemy hero in the same lane
+                    $enemyPick = null;
+                    foreach ($enemyPicks as $ep) {
+                        if (is_array($ep) && isset($ep['hero']) && isset($ep['lane']) && strtolower($ep['lane']) === strtolower($lane)) {
+                            $enemyPick = $ep;
+                            break;
+                        }
+                    }
+                    if (!$enemyPick) continue;
+                    $enemyHero = $enemyPick['hero'];
+                    $key = $playerHero . ' vs ' . $enemyHero;
+                    if (!isset($h2hStats[$key])) {
+                        $h2hStats[$key] = [
+                            'player_hero' => $playerHero,
+                            'enemy_hero' => $enemyHero,
+                            'win' => 0,
+                            'lose' => 0,
+                            'total' => 0
+                        ];
+                    }
+                    $h2hStats[$key]['total']++;
+                    if ($isWin) {
+                        $h2hStats[$key]['win']++;
+                    } else {
+                        $h2hStats[$key]['lose']++;
+                    }
+                }
+            }
+        }
+        // Calculate winrate
+        $result = [];
+        foreach ($h2hStats as $stat) {
+            $rate = $stat['total'] > 0 ? round($stat['win'] / $stat['total'] * 100) : 0;
+            $result[] = array_merge($stat, ['winrate' => $rate]);
+        }
+        // Sort by total desc
+        usort($result, function($a, $b) { return $b['total'] <=> $a['total']; });
+        return response()->json($result);
+    }
 }
