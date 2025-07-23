@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import mobaImg from '../assets/moba1.jpg';
+import mobaImg from '../assets/moba1.png';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
 import { Line } from 'react-chartjs-2';
@@ -9,6 +9,7 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { addDays, format } from 'date-fns';
 import { enUS } from 'date-fns/locale';
+import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar } from 'react-icons/fa';
 Chart.register(CategoryScale, LinearScale, PointElement, LineElement, Legend, Tooltip);
 
 const PROGRESSION_LABELS = {
@@ -115,32 +116,60 @@ export default function WeeklyReport() {
       });
   }, [startDate, endDate]);
 
+  // Navbar links config
+  const navLinks = [
+    { label: 'DATA DRAFT', path: '/home' },
+    { label: 'MOCK DRAFT', path: '/mock-draft' },
+    { label: 'PLAYERS STATISTIC', path: '/players-statistic' },
+    { label: 'TEAM HISTORY', path: '/team-history' },
+    { label: 'WEEKLY REPORT', path: '/weekly-report' },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#181A20]">
-      <header className="flex items-center pl-0 pr-8 py-0" style={{ background: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(${navbarBg}) center/cover, #23232a`, borderBottom: '1px solid #23283a', height: '80px' }}>
-        <img
-          src={mobaImg}
-          alt="MOBA"
-          className="h-20 w-44 object-cover cursor-pointer"
-          style={{
-            margin: 0,
-            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to top, transparent 0%, black 20%, black 100%)',
-            WebkitMaskComposite: 'destination-in',
-            maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to top, transparent 0%, black 20%, black 100%)',
-            boxShadow: '4px 0 16px 0 rgba(0,0,0,0.4)'
-          }}
-          onClick={() => navigate('/')} />
-        <div className="flex-1 flex items-center">
-          <nav className="flex space-x-8 ml-4">
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/home')}>Data Draft</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/mock-draft')}>Mock Draft</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/players-statistic')}>Players Statistic</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/team-history')}>Team History</button>
-            <button className="text-blue-400 border-b-2 border-blue-400 pb-1 font-semibold">Weekly Report</button>
-          </nav>
+    <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
+      {/* Top Navbar */}
+      <header
+        className="w-full fixed top-0 left-0 z-50 flex items-center justify-between px-12"
+        style={{
+          height: 80,
+          background: 'transparent',
+          boxShadow: 'none',
+        }}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-4 select-none cursor-pointer" onClick={() => navigate('/home')}>
+          <img
+            src={mobaImg}
+            alt="Logo"
+            className="h-32 w-32 object-contain"
+            style={{ borderRadius: 28, background: 'transparent', boxShadow: 'none' }}
+          />
         </div>
+        {/* Nav Links */}
+        <nav className="flex justify-end w-full">
+          <ul className="flex gap-10 mr-0">
+            {navLinks.map(link => (
+              <li key={link.label}>
+                <button
+                  className={`uppercase font-extrabold tracking-widest text-base transition-all px-2 py-1 ` +
+                    (window.location.pathname === link.path
+                      ? 'text-[#FFD600] border-b-2 border-[#FFD600]'
+                      : 'text-white hover:text-[#FFD600] hover:border-b-2 hover:border-[#FFD600]')}
+                  style={{ background: 'none', border: 'none', outline: 'none' }}
+                  onClick={() => navigate(link.path)}
+                >
+                  {link.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        {/* Right side empty for now */}
+        <div style={{ width: 48 }} />
       </header>
-      <div className="flex flex-col min-h-screen" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
+
+      {/* Main Content */}
+      <div className="flex flex-col min-h-screen flex-1" style={{ marginTop: 80 }}>
         <div className="w-full mt-4 flex flex-col items-start pl-8 pr-8">
           {/* Date Range Picker TOP LEFT aligned */}
           <div className="flex flex-col items-start gap-4 mb-6 w-[320px]">

@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import mobaImg from '../assets/moba1.jpg';
+import mobaImg from '../assets/moba1.png';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
-
-// Placeholder images (replace with your uploads later)
 import defaultPlayer from '../assets/default.png';
 import teamLogo from '../assets/teamlogo.jpg';
 import expIcon from '../assets/exp.jpg';
@@ -13,6 +11,7 @@ import goldIcon from '../assets/gold.jpg';
 import roamIcon from '../assets/roam.jpg';
 import { Bar } from 'react-chartjs-2';
 import { Chart, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip } from 'chart.js';
+import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar } from 'react-icons/fa';
 Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip);
 
 // PlayerCard must be placed BEFORE PlayersStatistic
@@ -246,35 +245,60 @@ export default function PlayersStatistic() {
     setShowConfirmModal(false);
   }
 
+  // Navbar links config
+  const navLinks = [
+    { label: 'DATA DRAFT', path: '/home' },
+    { label: 'MOCK DRAFT', path: '/mock-draft' },
+    { label: 'PLAYERS STATISTIC', path: '/players-statistic' },
+    { label: 'TEAM HISTORY', path: '/team-history' },
+    { label: 'WEEKLY REPORT', path: '/weekly-report' },
+  ];
+
   return (
-    <div className="min-h-screen" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
-      {/* Header */}
-      <header className="flex items-center pl-0 pr-8 py-0" style={{ background: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(${navbarBg}) center/cover, #23232a`, borderBottom: '1px solid #23283a', height: '80px' }}>
-        <img
-          src={mobaImg}
-          alt="MOBA"
-          className="h-20 w-44 object-cover cursor-pointer"
-          style={{
-            margin: 0,
-            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to top, transparent 0%, black 20%, black 100%)',
-            WebkitMaskComposite: 'destination-in',
-            maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to top, transparent 0%, black 20%, black 100%)',
-            boxShadow: '4px 0 16px 0 rgba(0,0,0,0.4)'
-          }}
-          onClick={() => navigate('/')} />
-        <div className="flex-1 flex items-center">
-          <nav className="flex space-x-8 ml-4">
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/home')}>Data Draft</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/mock-draft')}>Mock Draft</button>
-            <button className="text-blue-400 border-b-2 border-blue-400 pb-1 font-semibold">Players Statistic</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/team-history')}>Team History</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/weekly-report')}>Weekly Report</button>
-          </nav>
+    <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
+      {/* Top Navbar */}
+      <header
+        className="w-full fixed top-0 left-0 z-50 flex items-center justify-between px-12"
+        style={{
+          height: 80,
+          background: 'transparent',
+          boxShadow: 'none',
+        }}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-4 select-none cursor-pointer" onClick={() => navigate('/home')}>
+          <img
+            src={mobaImg}
+            alt="Logo"
+            className="h-32 w-32 object-contain"
+            style={{ borderRadius: 28, background: 'transparent', boxShadow: 'none' }}
+          />
         </div>
+        {/* Nav Links */}
+        <nav className="flex justify-end w-full">
+          <ul className="flex gap-10 mr-0">
+            {navLinks.map(link => (
+              <li key={link.label}>
+                <button
+                  className={`uppercase font-extrabold tracking-widest text-base transition-all px-2 py-1 ` +
+                    (window.location.pathname === link.path
+                      ? 'text-[#FFD600] border-b-2 border-[#FFD600]'
+                      : 'text-white hover:text-[#FFD600] hover:border-b-2 hover:border-[#FFD600]')}
+                  style={{ background: 'none', border: 'none', outline: 'none' }}
+                  onClick={() => navigate(link.path)}
+                >
+                  {link.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        {/* Right side empty for now */}
+        <div style={{ width: 48 }} />
       </header>
 
       {/* Main Content */}
-      <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center">
+      <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center flex-1" style={{ marginTop: 80 }}>
         <div className="text-2xl font-bold text-blue-300 mb-4">Team: {getCurrentTeamName()}</div>
         <div className="w-full flex flex-col items-center mt-12 space-y-4">
           <div className="flex flex-row justify-center gap-x-8 w-full">

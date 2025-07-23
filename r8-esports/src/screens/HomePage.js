@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import mobaImg from '../assets/moba1.jpg';
+import mobaImg from '../assets/moba1.png';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
+import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar } from 'react-icons/fa';
 
 // Add lane options
 const LANE_OPTIONS = [
@@ -227,47 +228,64 @@ export default function HomePage() {
     return () => { document.body.style.overflow = ''; };
   }, [modalState]);
 
+  // Navbar links config
+  const navLinks = [
+    { label: 'DATA DRAFT', path: '/home' },
+    { label: 'MOCK DRAFT', path: '/mock-draft' },
+    { label: 'PLAYERS STATISTIC', path: '/players-statistic' },
+    { label: 'TEAM HISTORY', path: '/team-history' },
+    { label: 'WEEKLY REPORT', path: '/weekly-report' },
+  ];
+
   return (
-    <div className="min-h-screen" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
-      {/* Header */}
+    <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
+      {/* Top Navbar */}
       <header
-        className="flex items-center pl-0 pr-8 py-0"
+        className="w-full fixed top-0 left-0 z-50 flex items-center justify-between px-12"
         style={{
-          background: `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(${navbarBg}) center/cover, #23232a`,
-          borderBottom: '1px solid #23283a',
-          height: '80px'
+          height: 80,
+          background: 'transparent', // No background, blends with page
+          boxShadow: 'none',
         }}
       >
-        <img
-          src={mobaImg}
-          alt="MOBA"
-          className="h-20 w-44 object-cover cursor-pointer"
-          style={{
-            margin: 0,
-            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to top, transparent 0%, black 20%, black 100%)',
-            WebkitMaskComposite: 'destination-in',
-            maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%), linear-gradient(to top, transparent 0%, black 20%, black 100%)',
-            boxShadow: '4px 0 16px 0 rgba(0,0,0,0.4)'
-          }}
-          onClick={() => navigate('/')}
-        />
-        <div className="flex-1 flex items-center">
-          <nav className="flex space-x-8 ml-4">
-            <button className="text-blue-400 border-b-2 border-blue-400 pb-1 font-semibold">Data Draft</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/mock-draft')}>Mock Draft</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/players-statistic')}>Players Statistic</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/team-history')}>Team History</button>
-            <button className="text-gray-400 hover:text-blue-300 transition" onClick={() => navigate('/weekly-report')}>Weekly Report</button>
-          </nav>
+        {/* Logo and Title */}
+        <div className="flex items-center gap-4 select-none cursor-pointer" onClick={() => navigate('/home')}>
+          <img
+            src={mobaImg}
+            alt="Logo"
+            className="h-32 w-32 object-contain"
+            style={{ borderRadius: 28, background: 'transparent', boxShadow: 'none' }}
+          />
         </div>
+        {/* Nav Links */}
+        <nav className="flex justify-end w-full">
+          <ul className="flex gap-10 mr-0">
+            {navLinks.map(link => (
+              <li key={link.label}>
+                <button
+                  className={`uppercase font-extrabold tracking-widest text-base transition-all px-2 py-1 ` +
+                    (window.location.pathname === link.path
+                      ? 'text-[#FFD600] border-b-2 border-[#FFD600]'
+                      : 'text-white hover:text-[#FFD600] hover:border-b-2 hover:border-[#FFD600]')}
+                  style={{ background: 'none', border: 'none', outline: 'none' }}
+                  onClick={() => navigate(link.path)}
+                >
+                  {link.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        {/* Right side empty for now */}
+        <div style={{ width: 48 }} />
       </header>
 
       {/* Main Content */}
-      <main className="flex flex-col items-center py-16 px-2">
+      <main className="flex flex-col items-center px-2 flex-1" style={{ marginTop: 80, paddingTop: 0 }}>
         <div className="flex flex-col items-center w-full">
-          <div className="w-[1600px] max-w-[95vw] mx-auto mt-12 p-8 rounded-2xl" style={{ background: '#23232a', boxShadow: '0 4px 24px 0 rgba(0,0,0,0.25)', border: '1px solid #23283a' }}>
+          <div className="w-[1600px] max-w-[95vw] mx-auto p-4 rounded-2xl" style={{ background: '#23232a', boxShadow: '0 4px 24px 0 rgba(0,0,0,0.25)', border: '1px solid #23283a', marginTop: 0 }}>
             {/* Top-left controls */}
-            <div className="flex flex-row items-center mb-6">
+            <div className="flex flex-row items-center mb-2">
               <button
                 className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3 rounded-lg shadow transition flex items-center mr-4"
                 onClick={() => setModalState('export')}
@@ -285,136 +303,139 @@ export default function HomePage() {
               </select>
               <h1 className="text-2xl font-bold text-blue-200 ml-4">Cody Banks Draft and Statistics System</h1>
           </div>
-            <table className="w-full text-sm whitespace-nowrap">
-              <thead className="sticky top-0 z-10" style={{ background: '#23283a' }}>
-                <tr>
-                  <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[120px] rounded-tl-xl">DATE</th>
-                  <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[120px]">RESULTS</th>
-                  <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[120px]">TEAM</th>
-                  <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px]">Banning Phase 1</th>
-                  <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px]">Picks</th>
-                  <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px]">Banning Phase 2</th>
-                  <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px] rounded-tr-xl">Picks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matches.map((match) => (
-                  <React.Fragment key={match.id}>
-                    {match.teams.map((team, idx) => (
-                      <tr
-                        key={team.id}
-                        data-match-id={match.id}
-                        className={
-                          `transition-colors duration-200 rounded-lg ` +
-                          (hoveredMatchId === match.id ? 'bg-blue-900/30' : '')
-                        }
-                        onMouseEnter={() => setHoveredMatchId(match.id)}
-                        onMouseLeave={() => setHoveredMatchId(null)}
-                      >
-                        {idx === 0 && (
-                          <>
-                            <td className="py-3 px-4 text-center align-middle" rowSpan={match.teams.length}>{match.match_date}</td>
-                            <td className="py-3 px-4 text-center align-middle" rowSpan={match.teams.length}>
-                              <span className="inline-block text-white px-4 py-1 rounded-full font-bold shadow-md" style={{ background: '#22c55e' }}>
-                                {match.winner}
-                              </span>
-                            </td>
-                          </>
-                        )}
-                        <td className="py-3 px-1 text-center font-bold align-middle">
-                          {team.team_color === 'blue' ? (
-                            <span className="relative group inline-block bg-blue-500 text-white px-3 py-1 rounded font-bold cursor-pointer focus:outline-none" tabIndex={0} aria-label="1st Pick">
-                              {team.team}
-                              <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-max px-3 py-1 bg-black text-sm text-white rounded shadow-lg opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-200 z-10 whitespace-nowrap">
-                                1st Pick
-                              </span>
-                            </span>
-                          ) : (
-                            <span className="inline-block bg-red-500 text-white px-3 py-1 rounded font-bold">
-                              {team.team}
-                            </span>
+            {/* Scrollable Table Container */}
+            <div style={{ maxHeight: '650px', overflowY: 'auto', borderRadius: '1rem', marginBottom: 8, paddingBottom: 8 }}>
+              <table className="w-full text-sm whitespace-nowrap">
+                <thead className="sticky top-0 z-10" style={{ background: '#23283a' }}>
+                  <tr>
+                    <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[120px] rounded-tl-xl">DATE</th>
+                    <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[120px]">RESULTS</th>
+                    <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[120px]">TEAM</th>
+                    <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px]">Banning Phase 1</th>
+                    <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px]">Picks</th>
+                    <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px]">Banning Phase 2</th>
+                    <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px] rounded-tr-xl">Picks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matches.map((match) => (
+                    <React.Fragment key={match.id}>
+                      {match.teams.map((team, idx) => (
+                        <tr
+                          key={team.id}
+                          data-match-id={match.id}
+                          className={
+                            `transition-colors duration-200 rounded-lg ` +
+                            (hoveredMatchId === match.id ? 'bg-blue-900/30' : '')
+                          }
+                          onMouseEnter={() => setHoveredMatchId(match.id)}
+                          onMouseLeave={() => setHoveredMatchId(null)}
+                        >
+                          {idx === 0 && (
+                            <>
+                              <td className="py-3 px-4 text-center align-middle" rowSpan={match.teams.length}>{match.match_date}</td>
+                              <td className="py-3 px-4 text-center align-middle" rowSpan={match.teams.length}>
+                                <span className="inline-block text-white px-4 py-1 rounded-full font-bold shadow-md" style={{ background: '#22c55e' }}>
+                                  {match.winner}
+                                </span>
+                              </td>
+                            </>
                           )}
-                        </td>
-                        <td className="py-3 px-1 text-center align-middle min-w-[120px]">
-                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                            {Array.isArray(team.banning_phase1)
-                              ? team.banning_phase1.map(heroName => {
-                                  const hero = heroList.find(h => h.name === heroName);
-                                  return hero ? (
-                                    <ModalBanHeroIcon key={heroName} src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
-                                  ) : null;
-                                })
-                              : null}
-                          </div>
-                        </td>
-                        <td className="py-3 px-1 text-center align-middle min-w-[140px]">
-                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                            {Array.isArray(team.picks1)
-                              ? team.picks1.map(pickObj => {
-                                  const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
-                                  const hero = heroList.find(h => h.name === heroName);
-                                  return hero ? (
-                                    <img
-                                      key={heroName}
-                                      src={`/heroes/${hero.role}/${hero.image}`}
-                                      alt={heroName}
-                                      style={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        objectFit: 'cover',
-                                        border: '2px solid #22c55e',
-                                        background: '#181A20'
-                                      }}
-                                    />
-                                  ) : null;
-                                })
-                              : null}
-                          </div>
-                        </td>
-                        <td className="py-3 px-1 text-center align-middle min-w-[140px]">
-                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                            {Array.isArray(team.banning_phase2)
-                              ? team.banning_phase2.map(heroName => {
-                                  const hero = heroList.find(h => h.name === heroName);
-                                  return hero ? (
-                                    <ModalBanHeroIcon key={heroName} src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
-                                  ) : null;
-                                })
-                              : null}
-                          </div>
-                        </td>
-                        <td className="py-3 px-1 text-center align-middle min-w-[140px]">
-                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                            {Array.isArray(team.picks2)
-                              ? team.picks2.map(pickObj => {
-                                  const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
-                                  const hero = heroList.find(h => h.name === heroName);
-                                  return hero ? (
-                                    <img
-                                      key={heroName}
-                                      src={`/heroes/${hero.role}/${hero.image}`}
-                                      alt={heroName}
-                                      style={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        objectFit: 'cover',
-                                        border: '2px solid #22c55e',
-                                        background: '#181A20'
-                                      }}
-                                    />
-                                  ) : null;
-                                })
-                              : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+                          <td className="py-3 px-1 text-center font-bold align-middle">
+                            {team.team_color === 'blue' ? (
+                              <span className="relative group inline-block bg-blue-500 text-white px-3 py-1 rounded font-bold cursor-pointer focus:outline-none" tabIndex={0} aria-label="1st Pick">
+                                {team.team}
+                                <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-max px-3 py-1 bg-black text-sm text-white rounded shadow-lg opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-200 z-10 whitespace-nowrap">
+                                  1st Pick
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="inline-block bg-red-500 text-white px-3 py-1 rounded font-bold">
+                                {team.team}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-1 text-center align-middle min-w-[120px]">
+                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                              {Array.isArray(team.banning_phase1)
+                                ? team.banning_phase1.map(heroName => {
+                                    const hero = heroList.find(h => h.name === heroName);
+                                    return hero ? (
+                                      <ModalBanHeroIcon key={heroName} src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
+                                    ) : null;
+                                  })
+                                : null}
+                            </div>
+                          </td>
+                          <td className="py-3 px-1 text-center align-middle min-w-[140px]">
+                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                              {Array.isArray(team.picks1)
+                                ? team.picks1.map(pickObj => {
+                                    const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
+                                    const hero = heroList.find(h => h.name === heroName);
+                                    return hero ? (
+                                      <img
+                                        key={heroName}
+                                        src={`/heroes/${hero.role}/${hero.image}`}
+                                        alt={heroName}
+                                        style={{
+                                          width: 56,
+                                          height: 56,
+                                          borderRadius: '50%',
+                                          objectFit: 'cover',
+                                          border: '2px solid #22c55e',
+                                          background: '#181A20'
+                                        }}
+                                      />
+                                    ) : null;
+                                  })
+                                : null}
+                            </div>
+                          </td>
+                          <td className="py-3 px-1 text-center align-middle min-w-[140px]">
+                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                              {Array.isArray(team.banning_phase2)
+                                ? team.banning_phase2.map(heroName => {
+                                    const hero = heroList.find(h => h.name === heroName);
+                                    return hero ? (
+                                      <ModalBanHeroIcon key={heroName} src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
+                                    ) : null;
+                                  })
+                                : null}
+                            </div>
+                          </td>
+                          <td className="py-3 px-1 text-center align-middle min-w-[140px]">
+                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                              {Array.isArray(team.picks2)
+                                ? team.picks2.map(pickObj => {
+                                    const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
+                                    const hero = heroList.find(h => h.name === heroName);
+                                    return hero ? (
+                                      <img
+                                        key={heroName}
+                                        src={`/heroes/${hero.role}/${hero.image}`}
+                                        alt={heroName}
+                                        style={{
+                                          width: 56,
+                                          height: 56,
+                                          borderRadius: '50%',
+                                          objectFit: 'cover',
+                                          border: '2px solid #22c55e',
+                                          background: '#181A20'
+                                        }}
+                                      />
+                                    ) : null;
+                                  })
+                                : null}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </main>
