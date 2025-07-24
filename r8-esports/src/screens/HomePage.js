@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import mobaImg from '../assets/moba1.png';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
-import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar } from 'react-icons/fa';
+import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar, FaTrash } from 'react-icons/fa';
 
 // Add lane options
 const LANE_OPTIONS = [
@@ -228,6 +228,21 @@ export default function HomePage() {
     return () => { document.body.style.overflow = ''; };
   }, [modalState]);
 
+  // Delete match handler
+  async function handleDeleteMatch(matchId) {
+    if (!window.confirm('Are you sure you want to delete this match?')) return;
+    try {
+      const response = await fetch(`/api/matches/${matchId}`, { method: 'DELETE' });
+      if (response.ok) {
+        setMatches(prev => prev.filter(m => m.id !== matchId));
+      } else {
+        alert('Failed to delete match');
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    }
+  }
+
   // Navbar links config
   const navLinks = [
     { label: 'DATA DRAFT', path: '/home' },
@@ -304,7 +319,7 @@ export default function HomePage() {
               <h1 className="text-2xl font-bold text-blue-200 ml-4">Cody Banks Draft and Statistics System</h1>
           </div>
             {/* Scrollable Table Container */}
-            <div style={{ maxHeight: '650px', overflowY: 'auto', borderRadius: '1rem', marginBottom: 8, paddingBottom: 8 }}>
+            <div style={{ maxHeight: '650px', overflowY: 'auto', borderRadius: '1rem', marginBottom: 8, paddingBottom: 8, scrollbarWidth: 'thin', scrollbarColor: 'transparent transparent' }} className="hide-scrollbar-buttons">
               <table className="w-full text-sm whitespace-nowrap">
                 <thead className="sticky top-0 z-10" style={{ background: '#23283a' }}>
                   <tr>
@@ -315,6 +330,7 @@ export default function HomePage() {
                     <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px]">Picks</th>
                     <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px]">Banning Phase 2</th>
                     <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[220px] rounded-tr-xl">Picks</th>
+                    <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[60px]">Delete</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -429,6 +445,18 @@ export default function HomePage() {
                                 : null}
                             </div>
                           </td>
+                         {/* Delete button: only show on first team row for each match */}
+                         {idx === 0 && (
+                           <td className="py-3 px-4 text-center align-middle" rowSpan={match.teams.length}>
+                             <button
+                               onClick={() => handleDeleteMatch(match.id)}
+                               className="text-red-500 hover:text-red-700 focus:outline-none"
+                               title="Delete match"
+                             >
+                               <FaTrash size={20} />
+                             </button>
+                           </td>
+                         )}
                         </tr>
                       ))}
                     </React.Fragment>
