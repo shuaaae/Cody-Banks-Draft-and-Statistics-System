@@ -12,10 +12,24 @@ import roamIcon from '../assets/roam.jpg';
 import { Bar } from 'react-chartjs-2';
 import { Chart, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip } from 'chart.js';
 import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar } from 'react-icons/fa';
+
 Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip);
 
+// Custom CSS for hiding scrollbars
+const scrollbarHideStyles = `
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Safari and Chrome */
+  }
+`;
+
 // PlayerCard must be placed BEFORE PlayersStatistic
-const PlayerCard = ({ lane, player, hero, highlight, onClick }) => {
+const PlayerCard = ({ lane, player, hero, highlight, onClick, getPlayerPhoto }) => {
+  const playerPhoto = getPlayerPhoto ? getPlayerPhoto(player.name) : (player.photo ? player.photo : defaultPlayer);
+  
   return (
     <button
       type="button"
@@ -38,7 +52,7 @@ const PlayerCard = ({ lane, player, hero, highlight, onClick }) => {
           }}
         />
         <img
-          src={player.photo ? player.photo : defaultPlayer}
+          src={playerPhoto}
           alt="Player"
           className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[140px] h-[160px] object-cover rounded-xl z-10"
           style={{ objectPosition: 'center' }}
@@ -52,7 +66,6 @@ const PlayerCard = ({ lane, player, hero, highlight, onClick }) => {
             <span className="text-yellow-300 text-xs font-extrabold tracking-widest">{lane.label}</span>
           </div>
         </div>
-        {/* Removed hero name from PlayerCard */}
       </div>
     </button>
   );
@@ -67,13 +80,12 @@ const LANES = [
 ];
 
 const PLAYER = {
-  name: 'DORAN',
-  realName: 'JOSHUA GODALLE',
+  name: 'Player',
   photo: defaultPlayer,
   teamLogo: teamLogo,
 };
 
-export default function PlayersStatistic() {
+function PlayersStatistic() {
   const navigate = useNavigate();
   const [lanePlayers, setLanePlayers] = useState(null);
   const [modalInfo, setModalInfo] = useState(null);
@@ -88,46 +100,268 @@ export default function PlayersStatistic() {
   const [allPlayerH2HStats, setAllPlayerH2HStats] = useState({}); // cache for all player H2H stats
   const [heroH2HStats, setHeroH2HStats] = useState([]); // current modal H2H stats
   const [isLoadingStats, setIsLoadingStats] = useState(false); // loading state for stats
+  const [showPerformanceModal, setShowPerformanceModal] = useState(false); // performance modal state
+  const [imageCache, setImageCache] = useState({}); // cache for player images
+  const [currentTeamId, setCurrentTeamId] = useState(null); // track current team ID
+  const statsFetchingRef = useRef(false);
+  
+  // Hero evaluation state
+  const [heroEvaluation, setHeroEvaluation] = useState(() => {
+    const currentPlayerName = modalInfo?.player?.name || '';
+    const saved = localStorage.getItem(`heroEvaluation_${currentPlayerName}`);
+    return saved ? JSON.parse(saved) : {
+      date: '',
+      blackHeroes: Array(15).fill(''),
+      blueHeroes: Array(15).fill(''),
+      redHeroes: Array(15).fill(''),
+      commitment: '',
+      goal: '',
+      roleMeaning: ''
+    };
+  });
+  
+  // Player evaluation state
+  const [playerEvaluation, setPlayerEvaluation] = useState(() => {
+    const currentPlayerName = modalInfo?.player?.name || '';
+    const saved = localStorage.getItem(`playerEvaluation_${currentPlayerName}`);
+    return saved ? JSON.parse(saved) : {
+      date: '',
+      name: '',
+      role: '',
+      notes: '',
+      qualities: {
+        'In-Game knowledge': null,
+        'Reflex': null,
+        'Skills': null,
+        'Communications': null,
+        'Technical Skill': null,
+        'Attitude': null,
+        'Decision Making': null,
+        'Hero Pool': null,
+        'Skillshots': null,
+        'Team Material': null
+      },
+      comments: Array(10).fill('')
+    };
+  });
+
+  // Preload and cache player images
+  const preloadPlayerImages = useCallback(async (teamPlayers) => {
+    if (!teamPlayers || !teamPlayers.players) return;
+    
+    const newImageCache = { ...imageCache };
+    const imagePromises = teamPlayers.players.map(async (player) => {
+      if (!player.name) return;
+      
+      try {
+        // Check if image is already cached
+        if (newImageCache[player.name]) return;
+        
+        // Try to fetch player photo from server
+        const response = await fetch(`/api/players/photo-by-name`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ playerName: player.name }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.photo_path) {
+            // Preload the image
+            const img = new Image();
+            img.onload = () => {
+              setImageCache(prev => ({
+                ...prev,
+                [player.name]: data.photo_path
+              }));
+            };
+            img.src = data.photo_path;
+          }
+        }
+      } catch (error) {
+        console.log(`No photo found for ${player.name}, using default`);
+      }
+    });
+    
+    await Promise.all(imagePromises);
+  }, [imageCache]);
+
+  // Load team players and preload images
+  useEffect(() => {
+    const latestMatch = JSON.parse(localStorage.getItem('latestMatch'));
+    if (latestMatch && latestMatch.teams && latestMatch.teams.length > 0) {
+      const team = latestMatch.teams[0];
+      const picks = [
+        ...(team.picks1 || []),
+        ...(team.picks2 || [])
+      ];
+      setLanePlayers(picks);
+    } else {
+      setLanePlayers(null);
+    }
+
+    const loadTeamData = async () => {
+      try {
+        // First try to get team data from localStorage
+        const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
+        console.log('Latest team from localStorage:', latestTeam);
+        
+        if (latestTeam && latestTeam.teamName) {
+          // Fetch fresh team data from backend to ensure we have the latest
+          const response = await fetch(`/api/teams/active`);
+          if (response.ok) {
+            const activeTeam = await response.json();
+            console.log('Active team from API:', activeTeam);
+            
+            // Update localStorage with fresh data
+            const updatedTeamData = {
+              teamName: activeTeam.name,
+              players: activeTeam.players_data || [],
+              id: activeTeam.id
+            };
+            
+            console.log('Updated team data:', updatedTeamData);
+            localStorage.setItem('latestTeam', JSON.stringify(updatedTeamData));
+            setTeamPlayers(updatedTeamData);
+            setCurrentTeamId(activeTeam.id);
+          } else {
+            console.log('API response not ok, using localStorage data');
+            // Fallback to localStorage data
+            setTeamPlayers(latestTeam);
+          }
+        } else {
+          console.log('No latestTeam in localStorage');
+          setTeamPlayers(null);
+        }
+      } catch (error) {
+        console.error('Error loading team data:', error);
+        // Fallback to localStorage data
+        const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
+        setTeamPlayers(latestTeam || null);
+      }
+    };
+
+    loadTeamData();
+  }, [currentTeamId]); // Re-run when team changes
+
+  // Listen for team changes and page visibility changes
+  useEffect(() => {
+    const checkTeamChange = () => {
+      const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
+      if (latestTeam && latestTeam.id !== currentTeamId) {
+        console.log('Team change detected:', currentTeamId, '->', latestTeam.id);
+        setCurrentTeamId(latestTeam.id);
+        setTeamPlayers(latestTeam);
+      }
+    };
+
+    // Check when page becomes visible (user switches back to tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkTeamChange();
+      }
+    };
+
+    // Check periodically for team changes (reduced frequency)
+    const interval = setInterval(checkTeamChange, 5000); // Changed from 2000 to 5000ms
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentTeamId]);
+
+  // Get cached player photo or default
+  const getPlayerPhoto = useCallback((playerName) => {
+    // First check memory cache
+    if (imageCache[playerName]) {
+      return imageCache[playerName];
+    }
+    
+    // Check localStorage for cached photo
+    const cachedPhoto = localStorage.getItem(`playerPhoto_${playerName}`);
+    if (cachedPhoto) {
+      return cachedPhoto;
+    }
+    
+    // Check if player exists in players array and has a photo
+    const player = players.find(p => p.name === playerName);
+    if (player && player.photo) {
+      return player.photo;
+    }
+    
+    return defaultPlayer;
+  }, [imageCache, players]);
 
   useEffect(() => {
     fetch('/api/players')
       .then(res => res.json())
-      .then(data => setPlayers(data.map(p => ({ ...p, teamLogo }))));
-  }, []);
+      .then(data => {
+        const playersWithTeamLogo = data.map(p => ({ ...p, teamLogo }));
+        setPlayers(playersWithTeamLogo);
+        
+        // Cache any existing player photos
+        const newImageCache = { ...imageCache };
+        playersWithTeamLogo.forEach(player => {
+          if (player.name && player.photo) {
+            newImageCache[player.name] = player.photo;
+            localStorage.setItem(`playerPhoto_${player.name}`, player.photo);
+          }
+        });
+        setImageCache(newImageCache);
+      });
+  }, [imageCache]);
 
   // Pre-fetch all player stats and H2H stats for the current team
   useEffect(() => {
     if (teamPlayers && teamPlayers.players && teamPlayers.teamName) {
+      // Prevent multiple simultaneous fetches
+      if (isLoadingStats || statsFetchingRef.current) return;
+      
+      statsFetchingRef.current = true;
       setIsLoadingStats(true);
+      
       const fetchAllStats = async () => {
-        const statsObj = {};
-        const h2hStatsObj = {};
-        
-        await Promise.all(
-          teamPlayers.players.map(async (p) => {
-            if (!p.name) return;
-            
-            // Fetch both regular stats and H2H stats in parallel
-            const [statsRes, h2hRes] = await Promise.all([
-              fetch(`/api/players/${encodeURIComponent(p.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}`),
-              fetch(`/api/players/${encodeURIComponent(p.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}`)
-            ]);
-            
-            const statsData = await statsRes.json();
-            const h2hData = await h2hRes.json();
-            
-            statsObj[p.name] = statsData;
-            h2hStatsObj[p.name] = h2hData;
-          })
-        );
-        
-        setAllPlayerStats(statsObj);
-        setAllPlayerH2HStats(h2hStatsObj);
-        setIsLoadingStats(false);
+        try {
+          console.log('Fetching stats for team:', teamPlayers.teamName);
+          const statsObj = {};
+          const h2hStatsObj = {};
+          
+          await Promise.all(
+            teamPlayers.players.map(async (p) => {
+              if (!p.name) return;
+              
+              // Fetch both regular stats and H2H stats in parallel
+              const [statsRes, h2hRes] = await Promise.all([
+                fetch(`/api/players/${encodeURIComponent(p.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}`),
+                fetch(`/api/players/${encodeURIComponent(p.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}`)
+              ]);
+              
+              const statsData = await statsRes.json();
+              const h2hData = await h2hRes.json();
+              
+              statsObj[p.name] = statsData;
+              h2hStatsObj[p.name] = h2hData;
+            })
+          );
+          
+          setAllPlayerStats(statsObj);
+          setAllPlayerH2HStats(h2hStatsObj);
+          console.log('Stats fetched successfully');
+        } catch (error) {
+          console.error('Error fetching player stats:', error);
+        } finally {
+          setIsLoadingStats(false);
+          statsFetchingRef.current = false;
+        }
       };
       fetchAllStats();
     }
-  }, [teamPlayers]);
+  }, [teamPlayers?.id, teamPlayers?.teamName]); // Only depend on team ID and name, not the entire object
 
   useEffect(() => {
     const latestMatch = JSON.parse(localStorage.getItem('latestMatch'));
@@ -164,6 +398,50 @@ export default function PlayersStatistic() {
       setHeroStats(cached || []);
       setHeroH2HStats(cachedH2H || []);
       
+      // Load player evaluation data for this specific player
+      const savedPlayerEvaluation = localStorage.getItem(`playerEvaluation_${modalInfo.player.name}`);
+      if (savedPlayerEvaluation) {
+        setPlayerEvaluation(JSON.parse(savedPlayerEvaluation));
+      } else {
+        // Reset to default state for new player
+        setPlayerEvaluation({
+          date: '',
+          name: '',
+          role: '',
+          notes: '',
+          qualities: {
+            'In-Game knowledge': null,
+            'Reflex': null,
+            'Skills': null,
+            'Communications': null,
+            'Technical Skill': null,
+            'Attitude': null,
+            'Decision Making': null,
+            'Hero Pool': null,
+            'Skillshots': null,
+            'Team Material': null
+          },
+          comments: Array(10).fill('')
+        });
+      }
+      
+      // Load hero evaluation data for this specific player
+      const savedHeroEvaluation = localStorage.getItem(`heroEvaluation_${modalInfo.player.name}`);
+      if (savedHeroEvaluation) {
+        setHeroEvaluation(JSON.parse(savedHeroEvaluation));
+      } else {
+        // Reset to default state for new player
+        setHeroEvaluation({
+          date: '',
+          blackHeroes: Array(15).fill(''),
+          blueHeroes: Array(15).fill(''),
+          redHeroes: Array(15).fill(''),
+          commitment: '',
+          goal: '',
+          roleMeaning: ''
+        });
+      }
+      
       // If not cached, fetch (fallback)
       if (!cached || !cachedH2H) {
         const teamName = getCurrentTeamName();
@@ -185,15 +463,29 @@ export default function PlayersStatistic() {
   }, [modalInfo, allPlayerStats, allPlayerH2HStats, getCurrentTeamName]);
 
   function getPlayerNameForLane(laneKey, laneIdx) {
-    if (!teamPlayers || !teamPlayers.players) return PLAYER.name;
+    if (!teamPlayers || !teamPlayers.players) {
+      console.log('No teamPlayers or players data:', { teamPlayers });
+      return `Player ${laneIdx + 1}`;
+    }
+    
+    console.log('Looking for lane:', laneKey, 'in players:', teamPlayers.players);
+    
     const found = teamPlayers.players.find(
       p => p.role && p.role.toLowerCase().includes(laneKey)
     );
-    if (found && found.name) return found.name;
+    
+    if (found && found.name) {
+      console.log('Found player for lane', laneKey, ':', found.name);
+      return found.name;
+    }
+    
     if (teamPlayers.players[laneIdx] && teamPlayers.players[laneIdx].name) {
+      console.log('Using player at index', laneIdx, ':', teamPlayers.players[laneIdx].name);
       return teamPlayers.players[laneIdx].name;
     }
-    return PLAYER.name;
+    
+    console.log('No player found for lane', laneKey, ', returning default');
+    return `Player ${laneIdx + 1}`;
   }
 
   function getHeroForLaneByLaneKey(laneKey, lanePlayers) {
@@ -226,16 +518,27 @@ export default function PlayersStatistic() {
       });
       if (response.ok) {
         const data = await response.json();
+        
+        // Cache the uploaded image
+        if (data.photo_path) {
+          setImageCache(prev => ({
+            ...prev,
+            [pendingPhoto.playerName]: data.photo_path
+          }));
+          // Also cache in localStorage for persistence
+          localStorage.setItem(`playerPhoto_${pendingPhoto.playerName}`, data.photo_path);
+        }
+        
         setPlayers(prev => {
           const idx = prev.findIndex(p => p.name === pendingPhoto.playerName);
           if (idx !== -1) {
             // Update existing player
             return prev.map(p =>
-              p.name === pendingPhoto.playerName ? { ...p, photo: data.photo } : p
+              p.name === pendingPhoto.playerName ? { ...p, photo: data.photo_path } : p
             );
           } else {
             // Add new player, include teamLogo property
-            return [...prev, { ...data.player, teamLogo }];
+            return [...prev, { ...data.player, photo: data.photo_path, teamLogo }];
           }
         });
         setTeamPlayers(prev => {
@@ -243,7 +546,7 @@ export default function PlayersStatistic() {
           return {
             ...prev,
             players: prev.players.map(p =>
-              p.name === pendingPhoto.playerName ? { ...p, photo: data.photo } : p
+              p.name === pendingPhoto.playerName ? { ...p, photo: data.photo_path } : p
             )
           };
         });
@@ -262,18 +565,83 @@ export default function PlayersStatistic() {
     setPendingPhoto(null);
     setShowConfirmModal(false);
   }
+  
+  // Hero evaluation functions
+  function handleHeroEvaluationChange(field, index, value) {
+    setHeroEvaluation(prev => {
+      const updated = {
+        ...prev,
+        [field]: prev[field].map((item, i) => i === index ? value : item)
+      };
+      const currentPlayerName = modalInfo?.player?.name || '';
+      localStorage.setItem(`heroEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      return updated;
+    });
+  }
+  
+  function handleHeroEvaluationTextChange(field, value) {
+    setHeroEvaluation(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      const currentPlayerName = modalInfo?.player?.name || '';
+      localStorage.setItem(`heroEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      return updated;
+    });
+  }
+  
+  // Player evaluation functions
+  function handlePlayerEvaluationChange(field, value) {
+    setPlayerEvaluation(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      const currentPlayerName = modalInfo?.player?.name || '';
+      localStorage.setItem(`playerEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      return updated;
+    });
+  }
+  
+  function handleQualityRating(quality, rating) {
+    setPlayerEvaluation(prev => {
+      const updated = {
+        ...prev,
+        qualities: {
+          ...prev.qualities,
+          [quality]: prev.qualities[quality] === rating ? null : rating
+        }
+      };
+      const currentPlayerName = modalInfo?.player?.name || '';
+      localStorage.setItem(`playerEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      return updated;
+    });
+  }
+  
+  function handleCommentChange(index, value) {
+    setPlayerEvaluation(prev => {
+      const updated = {
+        ...prev,
+        comments: prev.comments.map((comment, i) => i === index ? value : comment)
+      };
+      const currentPlayerName = modalInfo?.player?.name || '';
+      localStorage.setItem(`playerEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      return updated;
+    });
+  }
 
   // Navbar links config
   const navLinks = [
     { label: 'DATA DRAFT', path: '/home' },
     { label: 'MOCK DRAFT', path: '/mock-draft' },
     { label: 'PLAYERS STATISTIC', path: '/players-statistic' },
-    { label: 'TEAM HISTORY', path: '/team-history' },
     { label: 'WEEKLY REPORT', path: '/weekly-report' },
   ];
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
+      <style>{scrollbarHideStyles}</style>
       {/* Top Navbar */}
       <header
         className="w-full fixed top-0 left-0 z-50 flex items-center justify-between px-12"
@@ -319,12 +687,6 @@ export default function PlayersStatistic() {
       <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center flex-1" style={{ marginTop: -130 }}>
         <div className="text-2xl font-bold text-blue-300 mb-4">
           Team: {getCurrentTeamName()}
-          {isLoadingStats && (
-            <span className="text-sm text-blue-300 ml-2 flex items-center gap-1">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-300"></div>
-              Loading stats...
-            </span>
-          )}
         </div>
         <div className="w-full flex flex-col items-center mt-12 space-y-4">
           <div className="flex flex-row justify-center gap-x-8 w-full">
@@ -332,14 +694,14 @@ export default function PlayersStatistic() {
               const playerName = getPlayerNameForLane('exp', 0);
               const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
               return (
-                <PlayerCard lane={LANES[0]} player={playerObj} hero={getHeroForLaneByLaneKey('exp', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[0], player: playerObj, hero: getHeroForLaneByLaneKey('exp', lanePlayers) })} />
+                <PlayerCard lane={LANES[0]} player={playerObj} hero={getHeroForLaneByLaneKey('exp', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[0], player: playerObj, hero: getHeroForLaneByLaneKey('exp', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
               );
             })()}
             {(() => {
               const playerName = getPlayerNameForLane('mid', 1);
               const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
               return (
-                <PlayerCard lane={LANES[1]} player={playerObj} hero={getHeroForLaneByLaneKey('mid', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[1], player: playerObj, hero: getHeroForLaneByLaneKey('mid', lanePlayers) })} />
+                <PlayerCard lane={LANES[1]} player={playerObj} hero={getHeroForLaneByLaneKey('mid', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[1], player: playerObj, hero: getHeroForLaneByLaneKey('mid', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
               );
             })()}
           </div>
@@ -348,7 +710,7 @@ export default function PlayersStatistic() {
               const playerName = getPlayerNameForLane('jungler', 2);
               const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
               return (
-                <PlayerCard lane={LANES[2]} player={playerObj} hero={getHeroForLaneByLaneKey('jungler', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[2], player: playerObj, hero: getHeroForLaneByLaneKey('jungler', lanePlayers) })} />
+                <PlayerCard lane={LANES[2]} player={playerObj} hero={getHeroForLaneByLaneKey('jungler', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[2], player: playerObj, hero: getHeroForLaneByLaneKey('jungler', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
               );
             })()}
           </div>
@@ -357,26 +719,34 @@ export default function PlayersStatistic() {
               const playerName = getPlayerNameForLane('gold', 3);
               const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
               return (
-                <PlayerCard lane={LANES[3]} player={playerObj} hero={getHeroForLaneByLaneKey('gold', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[3], player: playerObj, hero: getHeroForLaneByLaneKey('gold', lanePlayers) })} />
+                <PlayerCard lane={LANES[3]} player={playerObj} hero={getHeroForLaneByLaneKey('gold', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[3], player: playerObj, hero: getHeroForLaneByLaneKey('gold', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
               );
             })()}
             {(() => {
               const playerName = getPlayerNameForLane('roam', 4);
               const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
               return (
-                <PlayerCard lane={LANES[4]} player={playerObj} hero={getHeroForLaneByLaneKey('roam', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[4], player: playerObj, hero: getHeroForLaneByLaneKey('roam', lanePlayers) })} />
+                <PlayerCard lane={LANES[4]} player={playerObj} hero={getHeroForLaneByLaneKey('roam', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[4], player: playerObj, hero: getHeroForLaneByLaneKey('roam', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
               );
             })()}
           </div>
         </div>
-      </div> {/* End of main content wrapper */}
+      </div>
 
       {/* Player modal */}
       {modalInfo && !showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-          <div className="bg-[#23232a] rounded-2xl shadow-2xl p-8 min-w-[1100px] max-w-[98vw] min-h-[420px] max-h-[90vh] relative flex flex-row items-start" style={{ width: '1300px' }}>
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+          onClick={() => setModalInfo(null)}
+        >
+          <div 
+            className="bg-[#23232a] rounded-2xl shadow-2xl p-6 min-w-[600px] max-w-[90vw] relative flex flex-col" 
+            style={{ width: '700px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button className="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl font-bold" onClick={() => setModalInfo(null)}>&times;</button>
-            <div className="flex flex-col items-center justify-center mr-8">
+            {/* Player Profile Header */}
+            <div className="flex items-center justify-center mb-6">
               <input
                 type="file"
                 accept="image/*"
@@ -385,157 +755,350 @@ export default function PlayersStatistic() {
                 onChange={e => handleFileSelect(e, modalInfo.player.name)}
               />
               <img
-                src={(() => {
-                  const player = players.find(p => p.name === modalInfo.player.name);
-                  return (player && player.photo) ? player.photo : modalInfo.player.photo;
-                })()}
+                src={getPlayerPhoto(modalInfo.player.name)}
                 alt="Player"
-                className="w-[120px] h-[140px] object-cover mb-2 rounded-xl cursor-pointer"
+                className="w-16 h-16 object-cover mr-4 rounded-full cursor-pointer"
                 onClick={() => fileInputRef.current && fileInputRef.current.click()}
                 title="Click to upload new photo"
                 style={{ opacity: uploadingPlayer === modalInfo.player.name ? 0.5 : 1, objectPosition: 'center' }}
               />
-              {uploadingPlayer === modalInfo.player.name && <div className="text-blue-300 mb-2">Uploading...</div>}
+              <div className="text-center">
+                <div className="text-white text-xl font-bold">{modalInfo.player.name}</div>
+                <div className="flex items-center justify-center gap-2 mt-1">
+                  <img src={modalInfo.lane.icon} alt={modalInfo.lane.label} className="w-6 h-6 object-contain" />
+                  <span className="text-yellow-300 text-sm font-bold">{modalInfo.lane.label}</span>
+                </div>
+                {uploadingPlayer === modalInfo.player.name && <div className="text-blue-300 text-xs mt-1">Uploading...</div>}
+              </div>
             </div>
-            {/* Right section: two columns (tables left, chart right) */}
-            <div className="flex flex-row items-start justify-start flex-1 min-w-0 gap-8">
-              {/* Left: Tables */}
-              <div className="flex flex-col items-start justify-start flex-1 min-w-0">
-                <div className="text-white text-xl font-bold mb-1">{modalInfo.player.name}</div>
-                <div className="flex items-center gap-2 mb-2">
-                  <img src={modalInfo.lane.icon} alt={modalInfo.lane.label} className="w-8 h-8 object-contain" />
-                  <span className="text-yellow-300 text-base font-extrabold tracking-widest">{modalInfo.lane.label}</span>
+            
+            {/* Loading indicator for modal */}
+            {isLoadingStats && (
+              <div className="w-full text-center py-4 mb-4">
+                <div className="text-blue-300 flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-300"></div>
+                  <span className="text-lg font-semibold">Loading player statistics...</span>
                 </div>
-                {/* Hero stats table */}
-                <div className="mt-4 w-full">
-                  <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE (Scrim)</div>
-                  {isLoadingStats ? (
-                    <div className="text-blue-300 flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-300"></div>
-                      Loading statistics...
+              </div>
+            )}
+            
+            {/* Hero stats table */}
+            <div className="w-full">
+              <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE (Scrim)</div>
+              {heroStats.length > 0 ? (
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="text-left px-2 py-1">Hero</th>
+                      <th className="text-green-500 px-2 py-1">WIN</th>
+                      <th className="text-red-500 px-2 py-1">LOSE</th>
+                      <th className="px-2 py-1">TOTAL</th>
+                      <th className="text-yellow-400 px-2 py-1">Success rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {heroStats.map((row, idx) => (
+                      <tr key={row.hero + idx}>
+                        <td className="px-2 py-1 text-white font-semibold">{row.hero}</td>
+                        <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
+                        <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
+                        <td className="px-2 py-1 text-center">{row.total}</td>
+                        <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-gray-400">No hero stats available.</div>
+              )}
+            </div>
+            
+            {/* H2H stats table */}
+            {heroH2HStats.length > 0 && (
+              <div className="mt-8 w-full">
+                <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE vs ENEMY (H2H)</div>
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="text-left px-2 py-1">Hero Used</th>
+                      <th className="text-left px-2 py-1">Enemy</th>
+                      <th className="text-green-500 px-2 py-1">WIN</th>
+                      <th className="text-red-500 px-2 py-1">LOSE</th>
+                      <th className="px-2 py-1">TOTAL</th>
+                      <th className="text-yellow-400 px-2 py-1">Success rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {heroH2HStats.map((row, idx) => (
+                      <tr key={row.player_hero + row.enemy_hero + idx}>
+                        <td className="px-2 py-1 text-white font-semibold">{row.player_hero}</td>
+                        <td className="px-2 py-1 text-blue-300 font-semibold">{row.enemy_hero}</td>
+                        <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
+                        <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
+                        <td className="px-2 py-1 text-center">{row.total}</td>
+                        <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            
+            <div className="text-gray-300 text-left mt-2">
+              {heroStats.length === 0 && (
+                'More player/lane/hero details can go here.'
+              )}
+            </div>
+            
+            {/* View Performance Button */}
+            <div className="mt-6 w-full flex justify-center">
+              <button
+                onClick={() => setShowPerformanceModal(true)}
+                className="px-8 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-lg transition-colors duration-200 shadow-lg"
+              >
+                View Performance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Performance Modal */}
+      {showPerformanceModal && modalInfo && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-90" style={{ pointerEvents: 'auto' }}>
+          <div className="bg-[#23232a] rounded-2xl shadow-2xl p-6 min-w-[1400px] max-w-[95vw] h-[800px] flex flex-col z-[10000]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-white text-xl font-bold">{modalInfo.player.name} - Performance Analysis</h2>
+              <button 
+                className="text-gray-400 hover:text-white text-2xl font-bold" 
+                onClick={() => setShowPerformanceModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
+              {/* Evaluation Forms Section - Now on top */}
+              <div className="w-full flex gap-4">
+                {/* Hero Evaluation */}
+                <div className="flex-1 bg-gray-800 p-3 rounded-lg">
+                  <div className="text-yellow-300 font-bold mb-2 text-sm">HERO EVALUATION</div>
+                  <div className="flex gap-2 mb-2">
+                    <div className="flex-1">
+                      <label className="text-white text-xs">Date:</label>
+                      <input
+                        type="text"
+                        value={heroEvaluation.date}
+                        onChange={(e) => handleHeroEvaluationTextChange('date', e.target.value)}
+                        className="w-full px-1 py-1 bg-gray-700 text-white rounded text-xs"
+                        placeholder="Date"
+                      />
                     </div>
-                  ) : heroStats.length > 0 ? (
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr>
-                          <th className="text-left px-2 py-1">Hero</th>
-                          <th className="text-green-500 px-2 py-1">WIN</th>
-                          <th className="text-red-500 px-2 py-1">LOSE</th>
-                          <th className="px-2 py-1">TOTAL</th>
-                          <th className="text-yellow-400 px-2 py-1">Success rate</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {heroStats.map((row, idx) => (
-                          <tr key={row.hero + idx}>
-                            <td className="px-2 py-1 text-white font-semibold">{row.hero}</td>
-                            <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
-                            <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
-                            <td className="px-2 py-1 text-center">{row.total}</td>
-                            <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="text-gray-400">No hero stats available.</div>
-                  )}
-                </div>
-                {/* H2H stats table */}
-                {heroH2HStats.length > 0 && (
-                  <div className="mt-8 w-full">
-                    <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE vs ENEMY (H2H)</div>
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr>
-                          <th className="text-left px-2 py-1">Hero Used</th>
-                          <th className="text-left px-2 py-1">Enemy</th>
-                          <th className="text-green-500 px-2 py-1">WIN</th>
-                          <th className="text-red-500 px-2 py-1">LOSE</th>
-                          <th className="px-2 py-1">TOTAL</th>
-                          <th className="text-yellow-400 px-2 py-1">Success rate</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {heroH2HStats.map((row, idx) => (
-                          <tr key={row.player_hero + row.enemy_hero + idx}>
-                            <td className="px-2 py-1 text-white font-semibold">{row.player_hero}</td>
-                            <td className="px-2 py-1 text-blue-300 font-semibold">{row.enemy_hero}</td>
-                            <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
-                            <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
-                            <td className="px-2 py-1 text-center">{row.total}</td>
-                            <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="flex-1">
+                      <label className="text-white text-xs">Commitment:</label>
+                      <input
+                        type="text"
+                        value={heroEvaluation.commitment}
+                        onChange={(e) => handleHeroEvaluationTextChange('commitment', e.target.value)}
+                        className="w-full px-1 py-1 bg-gray-700 text-white rounded text-xs"
+                        placeholder="Commitment"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-white text-xs">Goal:</label>
+                      <input
+                        type="text"
+                        value={heroEvaluation.goal}
+                        onChange={(e) => handleHeroEvaluationTextChange('goal', e.target.value)}
+                        className="w-full px-1 py-1 bg-gray-700 text-white rounded text-xs"
+                        placeholder="Goal"
+                      />
+                    </div>
                   </div>
-                )}
-                <div className="text-gray-300 text-left mt-2">
-                  {heroStats.length === 0 && (
-                    'More player/lane/hero details can go here.'
+                  
+                  <div className="grid grid-cols-3 gap-1 mb-2">
+                    <div className="bg-black text-white text-center text-xs py-1 rounded">Black</div>
+                    <div className="bg-blue-600 text-white text-center text-xs py-1 rounded">Blue</div>
+                    <div className="bg-red-600 text-white text-center text-xs py-1 rounded">Red</div>
+                  </div>
+                  
+                  <div className="space-y-1 max-h-48 overflow-y-scroll scrollbar-hide">
+                    {Array.from({ length: 10 }).map((_, index) => (
+                      <div key={index} className="grid grid-cols-3 gap-1">
+                        <input
+                          type="text"
+                          value={heroEvaluation.blackHeroes[index]}
+                          onChange={(e) => handleHeroEvaluationChange('blackHeroes', index, e.target.value)}
+                          className="px-1 py-1 bg-black text-white rounded text-xs text-center"
+                          placeholder="Hero"
+                        />
+                        <input
+                          type="text"
+                          value={heroEvaluation.blueHeroes[index]}
+                          onChange={(e) => handleHeroEvaluationChange('blueHeroes', index, e.target.value)}
+                          className="px-1 py-1 bg-blue-600 text-white rounded text-xs text-center"
+                          placeholder="Hero"
+                        />
+                        <input
+                          type="text"
+                          value={heroEvaluation.redHeroes[index]}
+                          onChange={(e) => handleHeroEvaluationChange('redHeroes', index, e.target.value)}
+                          className="px-1 py-1 bg-red-600 text-white rounded text-xs text-center"
+                          placeholder="Hero"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Player Evaluation */}
+                <div className="flex-1 bg-gray-800 p-3 rounded-lg">
+                  <div className="text-yellow-300 font-bold mb-2 text-sm">PLAYER EVALUATION</div>
+                  <div className="flex gap-2 mb-2">
+                    <div className="w-1/4">
+                      <label className="text-white text-xs">Date:</label>
+                      <input
+                        type="text"
+                        value={playerEvaluation.date}
+                        onChange={(e) => handlePlayerEvaluationChange('date', e.target.value)}
+                        className="w-full px-1 py-1 bg-green-600 text-white rounded text-xs"
+                        placeholder="Date"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-white text-xs">Notes:</label>
+                      <textarea
+                        value={playerEvaluation.notes || ''}
+                        onChange={(e) => handlePlayerEvaluationChange('notes', e.target.value)}
+                        className="w-full px-1 py-1 bg-green-600 text-white rounded text-xs resize-none"
+                        placeholder="Notes"
+                        rows="2"
+                        style={{ height: 'auto', minHeight: '32px' }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-5 gap-1 mb-2">
+                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">Quality</div>
+                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">1-4</div>
+                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">5-6</div>
+                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">7-8</div>
+                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">9-10</div>
+                  </div>
+                  
+                  <div className="space-y-1 max-h-48 overflow-y-scroll scrollbar-hide">
+                    {Object.entries(playerEvaluation.qualities).slice(0, 10).map(([quality, rating], index) => (
+                      <div key={quality} className="grid grid-cols-5 gap-1">
+                        <div className="bg-green-200 text-black px-1 py-1 text-xs font-semibold truncate">{quality}</div>
+                        <button
+                          onClick={() => handleQualityRating(quality, '1-4')}
+                          className={`px-1 py-1 text-xs font-bold ${rating === '1-4' ? 'bg-green-500 text-white' : 'bg-white text-black'} rounded cursor-pointer hover:bg-green-300`}
+                        >
+                          {rating === '1-4' ? '✓' : ''}
+                        </button>
+                        <button
+                          onClick={() => handleQualityRating(quality, '5-6')}
+                          className={`px-1 py-1 text-xs font-bold ${rating === '5-6' ? 'bg-green-500 text-white' : 'bg-white text-black'} rounded cursor-pointer hover:bg-green-300`}
+                        >
+                          {rating === '5-6' ? '✓' : ''}
+                        </button>
+                        <button
+                          onClick={() => handleQualityRating(quality, '7-8')}
+                          className={`px-1 py-1 text-xs font-bold ${rating === '7-8' ? 'bg-green-500 text-white' : 'bg-white text-black'} rounded cursor-pointer hover:bg-green-300`}
+                        >
+                          {rating === '7-8' ? '✓' : ''}
+                        </button>
+                        <button
+                          onClick={() => handleQualityRating(quality, '9-10')}
+                          className={`px-1 py-1 text-xs font-bold ${rating === '9-10' ? 'bg-green-500 text-white' : 'bg-white text-black'} rounded cursor-pointer hover:bg-green-300`}
+                        >
+                          {rating === '9-10' ? '✓' : ''}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  
+
+                </div>
+              </div>
+              
+              {/* Chart Section - Now below the tables */}
+              <div className="w-full flex justify-start">
+                <div className="w-1/2">
+                  <div className="text-yellow-300 font-bold mb-3 text-sm">PLAYER'S HERO PERFORMANCE CHART</div>
+                  {heroStats.length > 0 && (
+                    <div className="w-full bg-gray-800 rounded-lg p-3" style={{ height: '300px' }}>
+                    <Bar
+                      data={{
+                        labels: heroStats.map(row => row.hero),
+                        datasets: [
+                          {
+                            label: 'SUCCESS RATE',
+                            data: heroStats.map(row => row.winrate),
+                            type: 'line',
+                            borderColor: '#facc15',
+                            backgroundColor: '#facc15',
+                            yAxisID: 'y1',
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#facc15',
+                            order: 0,
+                            z: 10,
+                          },
+                          {
+                            label: 'WIN',
+                            data: heroStats.map(row => Math.round(row.win)),
+                            backgroundColor: '#3b82f6',
+                            order: 1,
+                          },
+                          {
+                            label: 'LOSE',
+                            data: heroStats.map(row => Math.round(row.lose)),
+                            backgroundColor: '#f87171',
+                            order: 2,
+                          },
+                          {
+                            label: 'TOTAL',
+                            data: heroStats.map(row => Math.round(row.total)),
+                            backgroundColor: '#22c55e',
+                            order: 3,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: { position: 'top' },
+                          tooltip: { mode: 'index', intersect: false },
+                        },
+                        scales: {
+                          y: { 
+                            beginAtZero: true, 
+                            title: { display: true, text: 'Count' },
+                            ticks: {
+                              stepSize: 1,
+                              callback: function(value) {
+                                return Math.round(value);
+                              }
+                            }
+                          },
+                          y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: { display: true, text: 'Success Rate (%)' },
+                            min: 0,
+                            max: 100,
+                            grid: { drawOnChartArea: false },
+                          },
+                        },
+                      }}
+                                          />
+                    </div>
                   )}
                 </div>
               </div>
-              {/* Right: Chart */}
-              {heroStats.length > 0 && (
-                <div className="flex flex-col items-center justify-start min-w-[400px] max-w-[500px] w-full">
-                  <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO PERFORMANCE CHART</div>
-                  <Bar
-                    data={{
-                      labels: heroStats.map(row => row.hero),
-                      datasets: [
-                        {
-                          label: 'WIN',
-                          data: heroStats.map(row => row.win),
-                          backgroundColor: '#3b82f6',
-                        },
-                        {
-                          label: 'LOSE',
-                          data: heroStats.map(row => row.lose),
-                          backgroundColor: '#f87171',
-                        },
-                        {
-                          label: 'TOTAL',
-                          data: heroStats.map(row => row.total),
-                          backgroundColor: '#22c55e',
-                        },
-                        {
-                          label: 'SUCCESS RATE',
-                          data: heroStats.map(row => row.winrate),
-                          type: 'line',
-                          borderColor: '#facc15',
-                          backgroundColor: '#facc15',
-                          yAxisID: 'y1',
-                          fill: false,
-                          tension: 0.4,
-                          pointRadius: 4,
-                          pointBackgroundColor: '#facc15',
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: {
-                        legend: { position: 'top' },
-                        tooltip: { mode: 'index', intersect: false },
-                      },
-                      scales: {
-                        y: { beginAtZero: true, title: { display: true, text: 'Count' } },
-                        y1: {
-                          beginAtZero: true,
-                          position: 'right',
-                          title: { display: true, text: 'Success Rate (%)' },
-                          min: 0,
-                          max: 100,
-                          grid: { drawOnChartArea: false },
-                        },
-                      },
-                    }}
-                    height={350}
-                  />
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -562,3 +1125,5 @@ export default function PlayersStatistic() {
     </div>
   );
 }
+
+export default PlayersStatistic;

@@ -27,6 +27,8 @@ export default function MockDraft() {
   // Team names state
   const [blueTeamName, setBlueTeamName] = useState('');
   const [redTeamName, setRedTeamName] = useState('');
+  // Loading state for save draft
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   useEffect(() => {
     fetch('/api/heroes')
@@ -248,26 +250,32 @@ export default function MockDraft() {
     { label: 'DATA DRAFT', path: '/home' },
     { label: 'MOCK DRAFT', path: '/mock-draft' },
     { label: 'PLAYERS STATISTIC', path: '/players-statistic' },
-    { label: 'TEAM HISTORY', path: '/team-history' },
     { label: 'WEEKLY REPORT', path: '/weekly-report' },
   ];
 
   // Save draft as image
   async function handleSaveDraft() {
-    const draftBoard = document.querySelector('.draft-screenshot-area');
-    if (!draftBoard) return;
-    // Temporarily remove box-shadow and transitions for speed
-    const prevBoxShadow = draftBoard.style.boxShadow;
-    const prevTransition = draftBoard.style.transition;
-    draftBoard.style.boxShadow = 'none';
-    draftBoard.style.transition = 'none';
-    const canvas = await html2canvas(draftBoard, { backgroundColor: null, scale: 2 });
-    draftBoard.style.boxShadow = prevBoxShadow;
-    draftBoard.style.transition = prevTransition;
-    const link = document.createElement('a');
-    link.download = 'draft.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+    setIsSavingDraft(true);
+    try {
+      const draftBoard = document.querySelector('.draft-screenshot-area');
+      if (!draftBoard) return;
+      // Temporarily remove box-shadow and transitions for speed
+      const prevBoxShadow = draftBoard.style.boxShadow;
+      const prevTransition = draftBoard.style.transition;
+      draftBoard.style.boxShadow = 'none';
+      draftBoard.style.transition = 'none';
+      const canvas = await html2canvas(draftBoard, { backgroundColor: null, scale: 2 });
+      draftBoard.style.boxShadow = prevBoxShadow;
+      draftBoard.style.transition = prevTransition;
+      const link = document.createElement('a');
+      link.download = 'draft.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    } finally {
+      setIsSavingDraft(false);
+    }
   }
 
   return (
@@ -494,10 +502,18 @@ export default function MockDraft() {
             {draftFinished && (
               <button
                 onClick={handleSaveDraft}
-                className="px-8 py-2 rounded-lg text-white font-semibold transition backdrop-blur-md bg-yellow-500 hover:bg-yellow-600"
+                disabled={isSavingDraft}
+                className="px-8 py-2 rounded-lg text-white font-semibold transition backdrop-blur-md bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 style={{ border: 'none', boxShadow: 'none' }}
               >
-                Save Draft
+                {isSavingDraft ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Draft'
+                )}
               </button>
             )}
           </div>

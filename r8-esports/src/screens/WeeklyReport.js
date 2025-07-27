@@ -121,7 +121,6 @@ export default function WeeklyReport() {
     { label: 'DATA DRAFT', path: '/home' },
     { label: 'MOCK DRAFT', path: '/mock-draft' },
     { label: 'PLAYERS STATISTIC', path: '/players-statistic' },
-    { label: 'TEAM HISTORY', path: '/team-history' },
     { label: 'WEEKLY REPORT', path: '/weekly-report' },
   ];
 

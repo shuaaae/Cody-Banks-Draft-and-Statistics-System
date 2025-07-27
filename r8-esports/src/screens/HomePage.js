@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import mobaImg from '../assets/moba1.png';
 import navbarBg from '../assets/navbarbackground.jpg';
-import { useNavigate } from 'react-router-dom';
-import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar, FaTrash } from 'react-icons/fa';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { FaTrash } from 'react-icons/fa';
 
 // Add lane options
 const LANE_OPTIONS = [
@@ -49,6 +49,7 @@ function ModalBanHeroIcon({ src, alt }) {
 }
 
 export default function HomePage() {
+  const location = useLocation();
   const [matches, setMatches] = useState([]);
   const [hoveredMatchId, setHoveredMatchId] = useState(null);
   const [banning, setBanning] = useState({
@@ -58,11 +59,9 @@ export default function HomePage() {
   const [modalState, setModalState] = useState('none'); // 'none' | 'export' | 'heroPicker' | 'deleteConfirm'
   const [picks, setPicks] = useState({ blue: { 1: [], 2: [] }, red: { 1: [], 2: [] } }); // { blue: {1: [{lane, hero}], 2: [...]}, red: {...} }
   const [pickTarget, setPickTarget] = useState(null); // { team: 'blue'|'red', pickNum: 1|2, lane: null|string }
-  const [showLaneModal, setShowLaneModal] = useState(false);
   const [heroPickerMode, setHeroPickerMode] = useState(null); // 'ban' | 'pick' | null
   const [heroList, setHeroList] = useState([]);
-  // New state for looped pick flow
-  const [pickFlowState, setPickFlowState] = useState('none'); // 'none' | 'lane-selection' | 'hero-selection'
+
   const [currentPickSession, setCurrentPickSession] = useState(null); // { team, pickNum, remainingPicks }
   const [pickerStep, setPickerStep] = useState('lane'); // 'lane' or 'hero' - tracks current step in pick flow
   // New state for extra fields
@@ -75,48 +74,414 @@ export default function HomePage() {
   const [selectedTeam, setSelectedTeam] = useState('All Teams');
   const [allTeams, setAllTeams] = useState([]);
   const [deleteConfirmMatch, setDeleteConfirmMatch] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const [cachedMatches, setCachedMatches] = useState([]);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isFetching, setIsFetching] = useState(false); // Add flag to prevent multiple requests
+  const [itemsPerPage] = useState(20); // Show 20 matches per page
+  const [showClearDataModal, setShowClearDataModal] = useState(false);
+  const [pendingTeamChange, setPendingTeamChange] = useState(null);
+  const [heroPickerSelected, setHeroPickerSelected] = useState([]);
   const navigate = useNavigate();
+  const isMountedRef = useRef(true);
 
+  // Function to clear all data when switching to a new team
+  const clearAllData = useCallback(() => {
+    console.log('Clearing all data for new team...');
+    setMatches([]);
+    setCachedMatches([]);
+    setLastFetchTime(0);
+    setCurrentPage(1);
+    setBanning({
+      blue1: [], blue2: [], red1: [], red2: []
+    });
+    setPicks({ blue: { 1: [], 2: [] }, red: { 1: [], 2: [] } });
+    setTurtleTakenBlue('');
+    setTurtleTakenRed('');
+    setLordTakenBlue('');
+    setLordTakenRed('');
+    setNotes('');
+    setPlaystyle('');
+    setCurrentPickSession(null);
+    setHeroPickerMode(null);
+    setPickerStep('lane');
+    setModalState('none');
+    setDeleteConfirmMatch(null);
+    setHoveredMatchId(null);
+    setErrorMessage('');
+    setIsLoading(false);
+    setIsFetching(false);
+    
+    // Clear localStorage data that could cause data leakage
+    localStorage.removeItem('latestMatch');
+    
+    // Clear any cached data from previous team
+    sessionStorage.clear();
+  }, []);
+
+
+
+  // Function to handle team selection
+  const handleTeamChange = useCallback((newTeam) => {
+    const previousTeam = selectedTeam;
+    
+    console.log(`Team change requested: "${previousTeam}" -> "${newTeam}"`);
+    
+    // If switching to a different team (not "All Teams"), show confirmation
+    if (newTeam !== 'All Teams' && newTeam !== previousTeam && matches.length > 0) {
+      setPendingTeamChange(newTeam);
+      setShowClearDataModal(true);
+    } else {
+      setSelectedTeam(newTeam);
+      
+      // If switching to a different team (not "All Teams"), clear all data
+      if (newTeam !== 'All Teams' && newTeam !== previousTeam) {
+        console.log(`Switching from "${previousTeam}" to "${newTeam}" - clearing data`);
+        clearAllData();
+        
+        // Set loading state to show fresh data is being loaded
+        setIsLoading(true);
+      }
+    }
+  }, [selectedTeam, clearAllData, matches.length]);
+
+  // Function to confirm team change and clear data
+  const confirmTeamChange = useCallback(() => {
+    if (pendingTeamChange) {
+      setSelectedTeam(pendingTeamChange);
+      clearAllData();
+      setShowClearDataModal(false);
+      setPendingTeamChange(null);
+    }
+  }, [pendingTeamChange, clearAllData]);
+
+  // Function to cancel team change
+  const cancelTeamChange = useCallback(() => {
+    setShowClearDataModal(false);
+    setPendingTeamChange(null);
+  }, []);
+
+  // Initialize selected team from localStorage or navigation state
   useEffect(() => {
-    fetch('/api/matches')
-      .then(res => res.json())
-      .then(data => {
-        // Collect all unique team names
-        const teamsSet = new Set();
-        data.forEach(match => {
-          if (match.teams) {
-            match.teams.forEach(team => {
-              if (team.team) teamsSet.add(team.team);
-            });
-          }
-        });
-        setAllTeams(['All Teams', ...Array.from(teamsSet)]);
-        // Filter matches for the selected team
-        let filtered = data;
-        if (selectedTeam && selectedTeam !== 'All Teams') {
-          const teamName = selectedTeam.trim().toLowerCase();
-          filtered = data.filter(match =>
-            match.teams && match.teams.some(team => (team.team || '').trim().toLowerCase() === teamName)
-          );
-        }
-        // Sort latest to oldest by match_date and id
-        filtered.sort((a, b) => {
-          if (a.match_date === b.match_date) return b.id - a.id;
-          return new Date(b.match_date) - new Date(a.match_date);
-        });
-        setMatches(filtered);
-      })
-      .catch(err => {
+    // First check navigation state (for direct navigation from landing page)
+    if (location.state?.selectedTeam) {
+      console.log('Setting team from navigation state:', location.state.selectedTeam);
+      setSelectedTeam(location.state.selectedTeam);
+      
+      // Store the team data in localStorage
+      if (location.state.activeTeamData) {
+        localStorage.setItem('latestTeam', JSON.stringify(location.state.activeTeamData));
+      }
+      
+      // If this is a new team, clear all data immediately
+      if (location.state.isNewTeam) {
+        console.log('New team detected - clearing all data immediately');
         setMatches([]);
-        console.error(err);
+        setCachedMatches([]);
+        setLastFetchTime(0);
+        sessionStorage.clear();
+        localStorage.removeItem('latestMatch');
+        setIsLoading(true); // Show loading state for new team
+      }
+      
+      // Clear the navigation state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    } else {
+      // Check localStorage for persistent team selection (for page refresh)
+      const latestTeam = localStorage.getItem('latestTeam');
+      if (latestTeam) {
+        try {
+          const teamData = JSON.parse(latestTeam);
+          console.log('Setting team from localStorage:', teamData.teamName);
+          setSelectedTeam(teamData.teamName);
+          // Clear cache to ensure fresh data for the restored team
+          setCachedMatches([]);
+          setLastFetchTime(0);
+
+        } catch (error) {
+          console.error('Error parsing team data from localStorage:', error);
+          setSelectedTeam('All Teams');
+        }
+      } else {
+        console.log('No team data found, defaulting to All Teams');
+        setSelectedTeam('All Teams');
+      }
+    }
+  }, [location.state]);
+
+  // Effect to trigger fresh fetch when team changes
+  useEffect(() => {
+    console.log('Team change effect triggered for:', selectedTeam);
+    
+    if (selectedTeam && selectedTeam !== 'All Teams') {
+      // Force fresh fetch when team changes
+      console.log('Clearing cache and forcing fresh fetch for team:', selectedTeam);
+      setCachedMatches([]);
+      setLastFetchTime(0);
+      setMatches([]); // Clear current matches immediately
+      setIsLoading(true); // Show loading state
+      
+      // Clear any cached data from previous team
+      sessionStorage.clear();
+      localStorage.removeItem('latestMatch');
+      
+    } else if (selectedTeam === 'All Teams') {
+      // If switching to "All Teams", clear the active team session
+      console.log('Switching to All Teams - clearing session');
+      fetch('/api/teams/set-active', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ team_id: null }),
+      }).then(() => {
+        // Trigger a fresh fetch by clearing cache
+        setCachedMatches([]);
+        setLastFetchTime(0);
+        setMatches([]); // Clear current matches
+      }).catch(() => {
+        // If setting active team fails, still trigger fresh fetch
+        setCachedMatches([]);
+        setLastFetchTime(0);
+        setMatches([]); // Clear current matches
       });
+    }
   }, [selectedTeam]);
 
-  useEffect(() => {
-    fetch('/api/heroes')
-      .then(res => res.json())
-      .then(data => setHeroList(data));
+  // Separate function to process matches data (defined first)
+  const processMatchesData = useCallback((data) => {
+    console.log('Processing matches data:', data);
+    
+    // Collect all unique team names from the data
+    const teamsSet = new Set();
+    data.forEach(match => {
+      if (match.teams) {
+        match.teams.forEach(team => {
+          if (team.team) teamsSet.add(team.team);
+        });
+      }
+    });
+    setAllTeams(['All Teams', ...Array.from(teamsSet)]);
+    
+    // Sort latest to oldest by match_date and id
+    const sorted = [...data].sort((a, b) => {
+      if (a.match_date === b.match_date) return b.id - a.id;
+      return new Date(b.match_date) - new Date(a.match_date);
+    });
+    
+    console.log('Setting matches to:', sorted);
+    setMatches(sorted || []);
+    setCurrentPage(1); // Reset to first page when data changes
   }, []);
+
+  // Optimized API fetching with caching and debouncing (defined after processMatchesData)
+  const fetchMatches = useCallback(async (forceRefresh = false) => {
+    console.log('fetchMatches called with forceRefresh:', forceRefresh);
+    const now = Date.now();
+    const cacheAge = now - lastFetchTime;
+    const cacheValid = cacheAge < 30000; // 30 seconds cache
+
+    // Use cache if available and not too old
+    if (!forceRefresh && cachedMatches.length > 0 && cacheValid) {
+      console.log('Using cached matches data');
+      processMatchesData(cachedMatches);
+      setErrorMessage(''); // Clear any error messages
+      setIsLoading(false); // Ensure loading is set to false when using cache
+      return;
+    }
+
+    // Prevent multiple simultaneous requests
+    if (isLoading || isFetching) {
+      console.log('Request already in progress, skipping...');
+      return;
+    }
+
+    setIsLoading(true);
+    setIsFetching(true);
+    console.log('Fetching fresh matches data...', { forceRefresh, cacheValid, cachedMatchesLength: cachedMatches.length });
+
+    try {
+      console.log('Starting health check...');
+      console.log('Health check URL:', '/api/heroes');
+      // Quick check if backend is reachable
+      const healthCheck = await fetch('/api/heroes', { 
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      console.log('Health check response:', healthCheck.status, healthCheck.ok);
+      
+      if (!healthCheck.ok) {
+        throw new Error(`Backend health check failed: ${healthCheck.status}`);
+      }
+
+      console.log('Health check passed, fetching matches...');
+      
+      // Get team ID from localStorage
+      const latestTeam = localStorage.getItem('latestTeam');
+      const teamData = latestTeam ? JSON.parse(latestTeam) : null;
+      const teamId = teamData?.id;
+      
+      console.log('Team data:', { teamData, teamId });
+      console.log('Matches URL:', `/api/matches${teamId ? `?team_id=${teamId}` : ''}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+      // Add performance headers and team_id parameter
+      const response = await fetch(`/api/matches${teamId ? `?team_id=${teamId}` : ''}`, {
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip, deflate, br'
+        }
+      });
+
+      clearTimeout(timeoutId);
+      console.log('Matches response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      console.log('API Response:', { status: response.status, dataLength: data.length, data });
+      
+      // Cache the data
+      setCachedMatches(data);
+      setLastFetchTime(now);
+      
+      // Process the data
+      processMatchesData(data);
+      
+      // Direct backup call to setMatches to ensure it's updated
+      setMatches(data || []);
+      
+      // Clear any previous error messages
+      setErrorMessage('');
+      
+      console.log(`Successfully loaded ${data.length} matches in ${Date.now() - now}ms`);
+      
+    } catch (error) {
+      console.error('Error fetching matches:', error);
+      
+      let errorMsg = 'Failed to load matches';
+      if (error.name === 'AbortError') {
+        errorMsg = 'Request timed out after 15 seconds';
+        console.error('Request timed out after 15 seconds');
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMsg = 'Network error - backend might not be running';
+        console.error('Network error - backend might not be running');
+      } else {
+        errorMsg = error.message || 'Unknown error occurred';
+      }
+      
+      setErrorMessage(errorMsg);
+      // Always set empty matches on error
+      setMatches([]);
+      setCachedMatches([]);
+      setLastFetchTime(0);
+    } finally {
+      console.log('Setting loading to false');
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        setIsFetching(false);
+      }
+    }
+      }, [lastFetchTime, processMatchesData]); // Remove cachedMatches to prevent infinite loop
+
+  // Effect to trigger fetch when cache is cleared (for team changes)
+  useEffect(() => {
+    if (cachedMatches.length === 0 && lastFetchTime === 0 && selectedTeam) {
+      // Only trigger if we have a selected team and cache is cleared
+      fetchMatches(true);
+    }
+  }, [cachedMatches.length, lastFetchTime, selectedTeam]);
+
+  // Initial load and heroes fetch
+  useEffect(() => {
+    console.log('Initial load effect triggered');
+    console.log('Selected team:', selectedTeam);
+    
+    // Simple approach: fetch both heroes and matches directly
+    const loadData = async () => {
+      try {
+        console.log('Starting to load data for team:', selectedTeam);
+        
+        // Fetch heroes
+        const heroesResponse = await fetch('/api/heroes');
+        const heroesData = await heroesResponse.json();
+        console.log('Heroes loaded successfully:', heroesData.length);
+        setHeroList(heroesData);
+        
+        // Get team ID from localStorage
+        const latestTeam = localStorage.getItem('latestTeam');
+        const teamData = latestTeam ? JSON.parse(latestTeam) : null;
+        const teamId = teamData?.id;
+        
+        console.log('Initial load - Team data:', { teamData, teamId });
+        
+        // Fetch matches with team_id parameter
+        const matchesResponse = await fetch(`/api/matches${teamId ? `?team_id=${teamId}` : ''}`);
+        const matchesData = await matchesResponse.json();
+        console.log('Matches loaded successfully:', matchesData.length);
+        
+        // Process matches data directly
+        processMatchesData(matchesData);
+        setCachedMatches(matchesData);
+        setLastFetchTime(Date.now());
+        setErrorMessage('');
+        setIsLoading(false);
+        
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setErrorMessage('Failed to load data: ' + error.message);
+        setIsLoading(false);
+      }
+    };
+    
+    // Only load data if we have a selected team
+    if (selectedTeam && selectedTeam !== 'All Teams') {
+      console.log('Loading data for team:', selectedTeam);
+      // Start loading immediately for new teams
+      const timer = setTimeout(loadData, 50);
+      
+      return () => {
+        clearTimeout(timer);
+        isMountedRef.current = false;
+      };
+    } else if (selectedTeam === 'All Teams') {
+      // If "All Teams" selected, clear data and don't load
+      console.log('All Teams selected - clearing data');
+      setMatches([]);
+      setCachedMatches([]);
+      setLastFetchTime(0);
+      setIsLoading(false);
+    } else {
+      // If no team selected, just clear loading state
+      console.log('No team selected - clearing loading state');
+      setIsLoading(false);
+    }
+  }, [processMatchesData, selectedTeam]); // Add selectedTeam as dependency
+
+  // Fallback timeout to prevent infinite loading
+  useEffect(() => {
+    if (isLoading) {
+      const fallbackTimer = setTimeout(() => {
+        console.log('Fallback timeout triggered - forcing loading to false');
+        setIsLoading(false);
+        setErrorMessage('Loading took too long - please try refreshing the page');
+      }, 10000); // 10 seconds
+      
+      return () => clearTimeout(fallbackTimer);
+    }
+  }, [isLoading]);
+
+
 
   // Function to reset all form data
   function resetFormData() {
@@ -133,7 +498,6 @@ export default function HomePage() {
     setPlaystyle('');
     
     // Reset pick flow state
-    setPickFlowState('none');
     setCurrentPickSession(null);
     setHeroPickerMode(null);
     setPickerStep('lane');
@@ -163,7 +527,6 @@ export default function HomePage() {
         remainingPicks,
         maxPicks
       });
-      setPickFlowState('lane-selection');
       setPickerStep('lane'); // Start with lane selection
       setHeroPickerMode(null); // Reset hero picker mode to ensure we start with lane selection
       setHeroPickerTarget(null); // Reset hero picker target to prevent banning modal from showing
@@ -175,7 +538,6 @@ export default function HomePage() {
   function handleLaneSelection(lane) {
     setPickTarget({ team: currentPickSession.team, pickNum: currentPickSession.pickNum, lane });
     setHeroPickerMode('pick');
-    setPickFlowState('hero-selection');
     setPickerStep('hero'); // Move to hero selection step
     setModalState('heroPicker');
   }
@@ -195,6 +557,9 @@ export default function HomePage() {
         }
       }));
 
+      // Clear the hero picker selection
+      setHeroPickerSelected([]);
+
       // Check if we need to continue picking
       const newRemainingPicks = currentPickSession.remainingPicks - 1;
       if (newRemainingPicks > 0) {
@@ -203,13 +568,11 @@ export default function HomePage() {
           ...prev,
           remainingPicks: newRemainingPicks
         }));
-        setPickFlowState('lane-selection');
         setPickerStep('lane'); // Go back to lane selection step
         setHeroPickerMode(null); // Reset hero picker mode
         setModalState('heroPicker'); // Reopen modal in lane-select mode
       } else {
         // All picks complete, close the flow
-        setPickFlowState('none');
         setCurrentPickSession(null);
         setPickerStep('lane'); // Reset step
         setModalState('export');
@@ -250,6 +613,12 @@ export default function HomePage() {
       return found && found.name ? found.name : '';
     };
 
+    // Get team_id from localStorage
+    const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
+    const teamId = latestTeam?.id;
+    
+    console.log('Creating match for team:', { latestTeam, teamId });
+    
     // Use your state for bans and picks
     const payload = {
       match_date: matchDate,
@@ -258,6 +627,7 @@ export default function HomePage() {
       lord_taken: (lordTakenBlue || lordTakenRed) ? `${lordTakenBlue || 0}-${lordTakenRed || 0}` : null,
       notes: notes,
       playstyle: playstyle,
+      team_id: teamId, // Add team_id to payload
       teams: [
         {
           team: blueTeam,
@@ -308,7 +678,11 @@ export default function HomePage() {
       
       if (response.ok) {
         // Save the exported match to localStorage for Player Statistics
-        localStorage.setItem('latestMatch', JSON.stringify(payload));
+        // Only save if the match involves the current active team
+        const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
+        if (latestTeam && (blueTeam === latestTeam.teamName || redTeam === latestTeam.teamName)) {
+          localStorage.setItem('latestMatch', JSON.stringify(payload));
+        }
         setModalState('none');
         setTurtleTakenBlue('');
         setTurtleTakenRed('');
@@ -373,7 +747,6 @@ export default function HomePage() {
     { label: 'DATA DRAFT', path: '/home' },
     { label: 'MOCK DRAFT', path: '/mock-draft' },
     { label: 'PLAYERS STATISTIC', path: '/players-statistic' },
-    { label: 'TEAM HISTORY', path: '/team-history' },
     { label: 'WEEKLY REPORT', path: '/weekly-report' },
   ];
 
@@ -430,22 +803,59 @@ export default function HomePage() {
                 className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-8 py-3 rounded-lg shadow transition flex items-center mr-4"
                 onClick={() => setModalState('export')}
               >
-              Export Match
-            </button>
+                Export Match
+              </button>
               <select
                 className="ml-2 px-4 py-2 rounded bg-gray-800 text-blue-200 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 value={selectedTeam}
-                onChange={e => setSelectedTeam(e.target.value)}
+                onChange={e => handleTeamChange(e.target.value)}
               >
                 {allTeams.map(team => (
                   <option key={team} value={team}>{team}</option>
                 ))}
               </select>
+              
               <h1 className="text-2xl font-bold text-blue-200 ml-4">Cody Banks Draft and Statistics System</h1>
-          </div>
+            </div>
             {/* Scrollable Table Container */}
             <div style={{ maxHeight: '650px', overflowY: 'auto', borderRadius: '1rem', marginBottom: 8, paddingBottom: 8, scrollbarWidth: 'thin', scrollbarColor: 'transparent transparent' }} className="hide-scrollbar-buttons">
-              <table className="w-full text-sm whitespace-nowrap">
+              {(() => {
+                console.log('Render debug:', { isLoading, errorMessage, matchesLength: matches?.length, matches });
+                return null;
+              })()}
+              {isLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
+                  <span className="text-blue-200">Loading matches...</span>
+                </div>
+              ) : errorMessage ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="text-red-400 text-6xl mb-4">⚠️</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Error Loading Matches</h3>
+                  <p className="text-red-300 text-center max-w-md mb-4">{errorMessage}</p>
+                  <button
+                    onClick={() => {
+                      setErrorMessage('');
+                      fetchMatches(true);
+                    }}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (!matches || matches.length === 0) ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <div className="text-gray-400 text-6xl mb-4">📊</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">No Matches Added</h3>
+                  <p className="text-gray-400 text-center max-w-md">
+                    {selectedTeam === 'All Teams' 
+                      ? "No matches have been added to the system yet. Click 'Export Match' to add your first match."
+                      : `No matches found for team "${selectedTeam}". Click 'Export Match' to add your first match for this team.`
+                    }
+                  </p>
+                </div>
+              ) : (
+                <table className="w-full text-sm whitespace-nowrap">
                 <thead className="sticky top-0 z-10" style={{ background: '#23283a' }}>
                   <tr>
                     <th className="py-3 px-4 text-blue-300 font-bold text-center min-w-[120px] rounded-tl-xl">DATE</th>
@@ -459,7 +869,9 @@ export default function HomePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {matches.map((match) => (
+                  {matches
+                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                    .map((match) => (
                     <React.Fragment key={match.id}>
                       {match.teams.map((team, idx) => (
                         <tr
@@ -502,7 +914,10 @@ export default function HomePage() {
                                 ? team.banning_phase1.map(heroName => {
                                     const hero = heroList.find(h => h.name === heroName);
                                     return hero ? (
-                                      <ModalBanHeroIcon key={heroName} src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
+                                      <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                        <ModalBanHeroIcon src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
+                                        <span style={{ fontSize: '10px', color: '#f87171', fontWeight: 'bold' }}>{heroName}</span>
+                                      </div>
                                     ) : null;
                                   })
                                 : null}
@@ -515,19 +930,21 @@ export default function HomePage() {
                                     const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                                     const hero = heroList.find(h => h.name === heroName);
                                     return hero ? (
-                                      <img
-                                        key={heroName}
-                                        src={`/heroes/${hero.role}/${hero.image}`}
-                                        alt={heroName}
-                                        style={{
-                                          width: 56,
-                                          height: 56,
-                                          borderRadius: '50%',
-                                          objectFit: 'cover',
-                                          border: '2px solid #22c55e',
-                                          background: '#181A20'
-                                        }}
-                                      />
+                                      <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                        <img
+                                          src={`/heroes/${hero.role}/${hero.image}`}
+                                          alt={heroName}
+                                          style={{
+                                            width: 56,
+                                            height: 56,
+                                            borderRadius: '50%',
+                                            objectFit: 'cover',
+                                            border: '2px solid #22c55e',
+                                            background: '#181A20'
+                                          }}
+                                        />
+                                        <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 'bold' }}>{heroName}</span>
+                                      </div>
                                     ) : null;
                                   })
                                 : null}
@@ -539,7 +956,10 @@ export default function HomePage() {
                                 ? team.banning_phase2.map(heroName => {
                                     const hero = heroList.find(h => h.name === heroName);
                                     return hero ? (
-                                      <ModalBanHeroIcon key={heroName} src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
+                                      <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                        <ModalBanHeroIcon src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
+                                        <span style={{ fontSize: '10px', color: '#f87171', fontWeight: 'bold' }}>{heroName}</span>
+                                      </div>
                                     ) : null;
                                   })
                                 : null}
@@ -552,19 +972,21 @@ export default function HomePage() {
                                     const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                                     const hero = heroList.find(h => h.name === heroName);
                                     return hero ? (
-                                      <img
-                                        key={heroName}
-                                        src={`/heroes/${hero.role}/${hero.image}`}
-                                        alt={heroName}
-                                        style={{
-                                          width: 56,
-                                          height: 56,
-                                          borderRadius: '50%',
-                                          objectFit: 'cover',
-                                          border: '2px solid #22c55e',
-                                          background: '#181A20'
-                                        }}
-                                      />
+                                      <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                        <img
+                                          src={`/heroes/${hero.role}/${hero.image}`}
+                                          alt={heroName}
+                                          style={{
+                                            width: 56,
+                                            height: 56,
+                                            borderRadius: '50%',
+                                            objectFit: 'cover',
+                                            border: '2px solid #22c55e',
+                                            background: '#181A20'
+                                          }}
+                                        />
+                                        <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 'bold' }}>{heroName}</span>
+                                      </div>
                                     ) : null;
                                   })
                                 : null}
@@ -591,6 +1013,32 @@ export default function HomePage() {
                   ))}
                 </tbody>
               </table>
+              )}
+              
+              {/* Pagination Controls */}
+              {matches.length > itemsPerPage && (
+                <div className="flex justify-center items-center mt-4 gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  
+                  <span className="text-white px-3">
+                    Page {currentPage} of {Math.ceil(matches.length / itemsPerPage)}
+                  </span>
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(matches.length / itemsPerPage), prev + 1))}
+                    disabled={currentPage >= Math.ceil(matches.length / itemsPerPage)}
+                    className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -835,7 +1283,6 @@ export default function HomePage() {
           open={true}
           onClose={() => {
             setModalState('export');
-            setPickFlowState('none');
             setCurrentPickSession(null);
             setPickerStep('lane');
           }}
@@ -883,12 +1330,13 @@ export default function HomePage() {
           open={true}
           onClose={() => {
             setModalState('export');
-            setPickFlowState('none');
             setCurrentPickSession(null);
             setPickerStep('lane');
+            setHeroPickerSelected([]);
           }}
-          selected={[]}
-          setSelected={handleHeroSelection}
+          selected={heroPickerSelected}
+          setSelected={setHeroPickerSelected}
+          onConfirm={handleHeroSelection}
           maxSelect={1}
           bannedHeroes={Object.values(banning).flat()}
           filterType={LANE_TYPE_MAP[pickTarget.lane]}
@@ -935,6 +1383,53 @@ export default function HomePage() {
                 }}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Change Confirmation Modal */}
+      {showClearDataModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-90" style={{ backdropFilter: 'blur(4px)' }}>
+          <div className="modal-box w-full max-w-md bg-[#23232a] rounded-2xl shadow-2xl p-8 border-2 border-yellow-500">
+            <div className="flex items-center mb-6">
+              <div className="text-yellow-500 text-3xl mr-4">⚠️</div>
+              <div>
+                <h3 className="text-2xl font-bold text-white">Switch Team?</h3>
+                <p className="text-yellow-400 text-sm mt-1">This will clear all current data</p>
+              </div>
+            </div>
+            <div className="mb-6">
+              <div className="bg-[#181A20] rounded-lg p-4 border border-yellow-400 mb-4">
+                <div className="text-white text-sm leading-relaxed">
+                  You're switching to <strong className="text-blue-400">{pendingTeamChange}</strong>.<br/><br/>
+                  This will clear all current match data, bans, picks, and form inputs to start fresh with the new team.
+                </div>
+              </div>
+              <div className="bg-red-900/20 border border-red-600 rounded-lg p-3">
+                <div className="flex items-center">
+                  <div className="text-red-400 text-lg mr-2">🗑️</div>
+                  <div className="text-red-200 text-sm">
+                    <strong>Warning:</strong> This action cannot be undone. All unsaved data will be lost.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-4">
+              <button
+                type="button"
+                className="btn bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-semibold"
+                onClick={cancelTeamChange}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg font-semibold"
+                onClick={confirmTeamChange}
+              >
+                Switch & Clear Data
               </button>
             </div>
           </div>
@@ -1109,7 +1604,7 @@ export default function HomePage() {
 }
 
 // Hero Picker Modal
-function HeroPickerModal({ open, onClose, selected, setSelected, maxSelect = 1, bannedHeroes = [], filterType = null, heroList = [], heroPickerMode, pickTarget, picks, banning, heroPickerTarget, currentPickSession }) {
+function HeroPickerModal({ open, onClose, selected, setSelected, maxSelect = 1, bannedHeroes = [], filterType = null, heroList = [], heroPickerMode, pickTarget, picks, banning, heroPickerTarget, currentPickSession, onConfirm }) {
   const [selectedType, setSelectedType] = React.useState('All');
   const [showFlexPicks, setShowFlexPicks] = React.useState(false);
   const [localSelected, setLocalSelected] = React.useState(selected);
@@ -1326,8 +1821,10 @@ function HeroPickerModal({ open, onClose, selected, setSelected, maxSelect = 1, 
             onClick={() => {
               if (canConfirm) {
                 setSelected(localSelected);
-                // Don't call onClose() for pick flow - let handleHeroSelection handle the continuation
-                if (heroPickerMode !== 'pick') {
+                // Call onConfirm for pick flow, otherwise close modal
+                if (heroPickerMode === 'pick' && onConfirm) {
+                  onConfirm(localSelected);
+                } else {
                   onClose();
                 }
               }

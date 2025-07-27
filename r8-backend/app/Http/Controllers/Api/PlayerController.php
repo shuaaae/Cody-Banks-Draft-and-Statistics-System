@@ -14,7 +14,12 @@ class PlayerController extends Controller
             'photo' => 'required|image|max:2048', // 2MB max
         ]);
 
-        $player = Player::findOrFail($playerId);
+        // Get the active team ID from session
+        $activeTeamId = session('active_team_id');
+        
+        $player = Player::where('id', $playerId)
+                       ->where('team_id', $activeTeamId)
+                       ->firstOrFail();
 
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
@@ -34,6 +39,9 @@ class PlayerController extends Controller
             'playerName' => 'required|string',
         ]);
 
+        // Get the active team ID from session
+        $activeTeamId = session('active_team_id');
+
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
             $playerName = preg_replace('/[^A-Za-z0-9_-]/', '', $request->input('playerName'));
@@ -41,9 +49,12 @@ class PlayerController extends Controller
             $file->move(public_path('players'), $filename);
             $photoPath = 'players/' . $filename;
 
-            // Find or create the player by name
+            // Find or create the player by name for the active team
             $player = \App\Models\Player::firstOrCreate(
-                ['name' => $request->input('playerName')],
+                [
+                    'name' => $request->input('playerName'),
+                    'team_id' => $activeTeamId
+                ],
                 ['role' => null]
             );
             $player->photo = $photoPath;
@@ -61,17 +72,31 @@ class PlayerController extends Controller
 
     public function index()
     {
-        return Player::all();
+        // Get the active team ID from session
+        $activeTeamId = session('active_team_id');
+        
+        // Return only players for the active team
+        return Player::where('team_id', $activeTeamId)->get();
     }
 
     public function heroStats($playerName)
     {
-        // Get all match_teams joined with matches
-        $matchTeams = \App\Models\MatchTeam::with('match')->get();
+        // Get the active team ID from session
+        $activeTeamId = session('active_team_id');
+        
+        // Get match_teams joined with matches, filtered by active team
+        $matchTeams = \App\Models\MatchTeam::with(['match' => function($query) use ($activeTeamId) {
+            $query->where('team_id', $activeTeamId);
+        }])->whereHas('match', function($query) use ($activeTeamId) {
+            $query->where('team_id', $activeTeamId);
+        })->get();
+        
         $heroStats = [];
 
         foreach ($matchTeams as $team) {
             $match = $team->match;
+            if (!$match) continue; // Skip if no match (shouldn't happen with whereHas)
+            
             $isWin = $team->team === $match->winner;
             // Combine picks1 and picks2
             $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
@@ -114,15 +139,31 @@ class PlayerController extends Controller
 
     public function heroStatsByTeam(Request $request, $playerName)
     {
+        // Get the active team ID from session
+        $activeTeamId = session('active_team_id');
         $teamName = $request->query('teamName');
         
         // Debug logging
         \Log::info("Player stats request", [
             'playerName' => $playerName,
+            'activeTeamId' => $activeTeamId,
             'teamName' => $teamName
         ]);
         
-        $matchTeams = \App\Models\MatchTeam::with('match')->get();
+        // Get match_teams joined with matches, filtered by team name or active team
+        $query = \App\Models\MatchTeam::with('match');
+        
+        if ($teamName) {
+            // Filter by team name if provided
+            $query->where('team', $teamName);
+        } else if ($activeTeamId) {
+            // Fallback to session team ID
+            $query->whereHas('match', function($q) use ($activeTeamId) {
+                $q->where('team_id', $activeTeamId);
+            });
+        }
+        
+        $matchTeams = $query->get();
         
         // Debug: Log all match teams
         \Log::info("Found match teams", [
@@ -140,18 +181,18 @@ class PlayerController extends Controller
 
         foreach ($matchTeams as $team) {
             $match = $team->match;
+            if (!$match) continue; // Skip if no match
+            
             $isWin = $team->team === $match->winner;
             // Combine picks1 and picks2
             $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
             foreach ($picks as $pick) {
-                // Only count if both player and team match
+                // Only count if player matches (team is already filtered by active team)
                 if (
                     is_array($pick) &&
                     isset($pick['hero']) &&
                     isset($pick['player']) &&
-                    isset($pick['team']) &&
-                    strtolower($pick['player']) === strtolower($playerName) &&
-                    strtolower($pick['team']) === strtolower($teamName)
+                    strtolower($pick['player']) === strtolower($playerName)
                 ) {
                     $hero = $pick['hero'];
                 } else {
@@ -188,7 +229,26 @@ class PlayerController extends Controller
     public function heroH2HStatsByTeam(Request $request, $playerName)
     {
         $teamName = $request->query('teamName');
-        $matchTeams = \App\Models\MatchTeam::with('match')->get();
+        
+        // Debug logging
+        \Log::info("Player H2H stats request", [
+            'playerName' => $playerName,
+            'teamName' => $teamName
+        ]);
+        
+        // Filter by team name if provided
+        $query = \App\Models\MatchTeam::with('match');
+        if ($teamName) {
+            $query->where('team', $teamName);
+        }
+        
+        $matchTeams = $query->get();
+        
+        \Log::info("Found match teams for H2H", [
+            'count' => $matchTeams->count(),
+            'teams' => $matchTeams->pluck('team')->toArray()
+        ]);
+        
         $h2hStats = [];
 
         foreach ($matchTeams as $team) {

@@ -12,10 +12,45 @@ class GameMatchController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Get all matches with their teams (excluding soft deleted ones)
-        $matches = \App\Models\GameMatch::with('teams')->whereNull('deleted_at')->orderBy('match_date', 'desc')->get();
+        // Get team_id from query parameter (frontend sends this)
+        $teamId = $request->query('team_id');
+        
+        // Fallback to session if no query parameter
+        if (!$teamId) {
+            $teamId = session('active_team_id');
+        }
+        
+        // Debug logging
+        \Log::info('GameMatchController::index called', [
+            'query_team_id' => $request->query('team_id'),
+            'session_team_id' => session('active_team_id'),
+            'final_team_id' => $teamId,
+            'session_id' => session()->getId(),
+            'all_sessions' => session()->all()
+        ]);
+        
+        // Build the query
+        $query = \App\Models\GameMatch::with('teams')->whereNull('deleted_at');
+        
+        // Filter by team_id if provided
+        if ($teamId && $teamId !== 'null') {
+            $query->where('team_id', $teamId);
+            \Log::info('Filtering matches by team_id', ['team_id' => $teamId]);
+        } else {
+            \Log::info('No team_id provided, returning all matches');
+        }
+        
+        // Get matches ordered by date
+        $matches = $query->orderBy('match_date', 'desc')->get();
+        
+        \Log::info('Matches returned', [
+            'count' => $matches->count(),
+            'team_ids' => $matches->pluck('team_id')->unique()->toArray(),
+            'filtered_by_team_id' => $teamId
+        ]);
+        
         return response()->json($matches);
     }
 
@@ -24,6 +59,19 @@ class GameMatchController extends Controller
      */
     public function store(Request $request)
     {
+        // Get team_id from request body first, then fallback to session
+        $teamId = $request->input('team_id');
+        if (!$teamId) {
+            $teamId = session('active_team_id');
+        }
+        
+        // Debug logging
+        \Log::info('GameMatchController::store called', [
+            'request_team_id' => $request->input('team_id'),
+            'session_team_id' => session('active_team_id'),
+            'final_team_id' => $teamId
+        ]);
+        
         // Validate the request
         $validated = $request->validate([
             'match_date' => 'required|date',
@@ -32,6 +80,7 @@ class GameMatchController extends Controller
             'lord_taken' => 'nullable|string',
             'notes' => 'nullable|string',
             'playstyle' => 'nullable|string',
+            'team_id' => 'nullable|exists:teams,id', // Allow team_id in request
             'teams' => 'required|array|size:2',
             'teams.*.team' => 'required|string',
             'teams.*.team_color' => 'required|in:blue,red',
@@ -49,6 +98,7 @@ class GameMatchController extends Controller
             'lord_taken' => $validated['lord_taken'] ?? null,
             'notes' => $validated['notes'] ?? null,
             'playstyle' => $validated['playstyle'] ?? null,
+            'team_id' => $teamId, // Use the determined team_id
         ]);
 
         // Defensive: Only create teams if present and is array

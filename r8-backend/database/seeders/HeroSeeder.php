@@ -2,171 +2,168 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\Hero; // ✅ Correct place for the import
+use App\Models\Hero;
 
 class HeroSeeder extends Seeder
 {
-    public function run()
-    {
-        Hero::insert(
-            array (
-                0 =>
-                array (
+  public function run()
+  {
+        $heroes = array(
+            0 => array(
                   'name' => 'Aamon',
                   'role' => 'Assassin',
-                  'image' => 'Aamon.jpg',
+                  'image' => 'Aamon.png',
                 ),
                 1 =>
                 array (
                   'name' => 'Benedetta',
                   'role' => 'Assassin',
-                  'image' => 'Benedetta.jpg',
+                  'image' => 'Benedetta.png',
                 ),
                 2 =>
                 array (
                   'name' => 'Fanny',
                   'role' => 'Assassin',
-                  'image' => 'Fanny.jpg',
+                  'image' => 'Fanny.png',
                 ),
                 3 =>
                 array (
                   'name' => 'Gusion',
                   'role' => 'Assassin',
-                  'image' => 'Gusion.jpg',
+                  'image' => 'Gusion.png',
                 ),
                 4 =>
                 array (
                   'name' => 'Hanzo',
                   'role' => 'Assassin',
-                  'image' => 'Hanzo.jpg',
+                  'image' => 'Hanzo.png',
                 ),
                 5 =>
                 array (
                   'name' => 'Harley',
                   'role' => 'Assassin',
-                  'image' => 'Harley.jpg',
+                  'image' => 'Harley.png',
                 ),
                 6 =>
                 array (
                   'name' => 'Hayabusa',
                   'role' => 'Assassin',
-                  'image' => 'Hayabusa.jpg',
+                  'image' => 'Hayabusa.png',
                 ),
                 7 =>
                 array (
                   'name' => 'Helcurt',
                   'role' => 'Assassin',
-                  'image' => 'Helcurt.jpg',
+                  'image' => 'Helcurt.png',
                 ),
                 8 =>
                 array (
                   'name' => 'Joy',
                   'role' => 'Assassin',
-                  'image' => 'Joy.jpg',
+                  'image' => 'Joy.png',
                 ),
                 9 =>
                 array (
                   'name' => 'Julian',
                   'role' => 'Assassin',
-                  'image' => 'Julian.jpg',
+                  'image' => 'Julian.png',
                 ),
                 10 =>
                 array (
                   'name' => 'Karina',
                   'role' => 'Assassin',
-                  'image' => 'Karina.jpg',
+                  'image' => 'Karina.png',
                 ),
                 11 =>
                 array (
                   'name' => 'Lancelot',
                   'role' => 'Assassin',
-                  'image' => 'Lancelot.jpg',
+                  'image' => 'Lancelot.png',
                 ),
                 12 =>
                 array (
                   'name' => 'Ling',
                   'role' => 'Assassin',
-                  'image' => 'Ling.jpg',
+                  'image' => 'Ling.png',
                 ),
                 13 =>
                 array (
                   'name' => 'Natalia',
                   'role' => 'Assassin',
-                  'image' => 'Natalia.jpg',
+                  'image' => 'Natalia.png',
                 ),
                 14 =>
                 array (
                   'name' => 'Nolan',
                   'role' => 'Assassin',
-                  'image' => 'Nolan.jpg',
+                  'image' => 'Nolan.png',
                 ),
                 15 =>
                 array (
                   'name' => 'Saber',
                   'role' => 'Assassin',
-                  'image' => 'Saber.jpg',
+                  'image' => 'Saber.png',
                 ),
                 16 =>
                 array (
                   'name' => 'Selena',
                   'role' => 'Assassin',
-                  'image' => 'Selena.jpg',
+                  'image' => 'Selena.png',
                 ),
                 17 =>
                 array (
                   'name' => 'Suyou',
                   'role' => 'Assassin',
-                  'image' => 'Suyou.jpg',
+                  'image' => 'Suyou.png',
                 ),
                 18 =>
                 array (
                   'name' => 'Yi Sun-shin',
                   'role' => 'Assassin',
-                  'image' => 'Yi Sun-shin.jpg',
+                  'image' => 'Yi Sun-shin.png',
                 ),
                 19 =>
                 array (
                   'name' => 'Aldous',
                   'role' => 'Fighter',
-                  'image' => 'Aldous.jpg',
+                  'image' => 'Aldous.png',
                 ),
                 20 =>
                 array (
                   'name' => 'Alpha',
                   'role' => 'Fighter',
-                  'image' => 'Alpha.jpg',
+                  'image' => 'Alpha.png',
                 ),
                 21 =>
                 array (
                   'name' => 'Alucard',
                   'role' => 'Fighter',
-                  'image' => 'Alucard.jpg',
+                  'image' => 'Alucard.png',
                 ),
                 22 =>
                 array (
                   'name' => 'Argus',
                   'role' => 'Fighter',
-                  'image' => 'Argus.jpg',
+                  'image' => 'Argus.png',
                 ),
                 23 =>
                 array (
                   'name' => 'Arlott',
                   'role' => 'Fighter',
-                  'image' => 'Arlott.jpg',
+                  'image' => 'Arlott.png',
                 ),
                 24 =>
                 array (
                   'name' => 'Aulus',
                   'role' => 'Fighter',
-                  'image' => 'Aulus.jpg',
+                  'image' => 'Aulus.png',
                 ),
                 25 =>
                 array (
                   'name' => 'Badang',
                   'role' => 'Fighter',
-                  'image' => 'Badang.jpg',
+                  'image' => 'Badang.png',
                 ),
                 26 =>
                 array (
@@ -686,107 +683,114 @@ class HeroSeeder extends Seeder
                 ),
                 112 =>
                 array (
-                  'name' => 'Akai',
-                  'role' => 'Tank',
-                  'image' => 'Akai.jpg',
+                  'name' => 'Nana',
+                  'role' => 'Support',
+                  'image' => 'Nana.jpg',
                 ),
                 113 =>
+                array (
+                  'name' => 'Akai',
+                  'role' => 'Tank',
+                  'image' => 'Akai.png',
+                ),
+                114 =>
                 array (
                   'name' => 'Atlas',
                   'role' => 'Tank',
                   'image' => 'Atlas.jpg',
                 ),
-                114 =>
+                115 =>
                 array (
                   'name' => 'Barats',
                   'role' => 'Tank',
                   'image' => 'Barats.jpg',
                 ),
-                115 =>
+                116 =>
                 array (
                   'name' => 'Baxia',
                   'role' => 'Tank',
                   'image' => 'Baxia.jpg',
                 ),
-                116 =>
+                117 =>
                 array (
                   'name' => 'Belerick',
                   'role' => 'Tank',
-                  'image' => 'Belerick.jpg',
+                  'image' => 'Belerick.png',
                 ),
-                117 =>
+                118 =>
                 array (
                   'name' => 'Edith',
                   'role' => 'Tank',
                   'image' => 'Edith.jpg',
                 ),
-                118 =>
+                119 =>
                 array (
                   'name' => 'Esmeralda',
                   'role' => 'Tank',
                   'image' => 'Esmeralda.jpg',
                 ),
-                119 =>
+                120 =>
                 array (
                   'name' => 'Franco',
                   'role' => 'Tank',
                   'image' => 'Franco.jpg',
                 ),
-                120 =>
+                121 =>
                 array (
                   'name' => 'Gatotkaca',
                   'role' => 'Tank',
                   'image' => 'Gatotkaca.jpg',
                 ),
-                121 =>
+                122 =>
                 array (
                   'name' => 'Gloo',
                   'role' => 'Tank',
                   'image' => 'Gloo.jpg',
                 ),
-                122 =>
+                123 =>
                 array (
                   'name' => 'Grock',
                   'role' => 'Tank',
                   'image' => 'Grock.jpg',
                 ),
-                123 =>
+                124 =>
                 array (
                   'name' => 'Hylos',
                   'role' => 'Tank',
                   'image' => 'Hylos.jpg',
                 ),
-                124 =>
+                125 =>
                 array (
                   'name' => 'Johnson',
                   'role' => 'Tank',
                   'image' => 'Johnson.jpg',
                 ),
-                125 =>
+                126 =>
                 array (
                   'name' => 'Khufra',
                   'role' => 'Tank',
                   'image' => 'Khufra.jpg',
                 ),
-                126 =>
+                127 =>
                 array (
                   'name' => 'Minotaur',
                   'role' => 'Tank',
                   'image' => 'Minotaur.jpg',
                 ),
-                127 =>
+                128 =>
                 array (
                   'name' => 'Tigreal',
                   'role' => 'Tank',
                   'image' => 'Tigreal.jpg',
                 ),
-                128 =>
+                129 =>
                 array (
                   'name' => 'Uranus',
                   'role' => 'Tank',
                   'image' => 'Uranus.jpg',
                 ),
-              )
             );
+    
+            
+        }
     }
-}

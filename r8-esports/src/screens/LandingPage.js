@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function LandingPage() {
@@ -6,8 +6,14 @@ export default function LandingPage() {
   const [hoveredBtn, setHoveredBtn] = useState(null); // 'getstarted' or 'addteam' or null
   const buttonWidth = 220;
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
+  const [showTeamPickerModal, setShowTeamPickerModal] = useState(false);
+  const [teams, setTeams] = useState([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
   const [teamLogo, setTeamLogo] = useState(null);
+  const [teamLogoFile, setTeamLogoFile] = useState(null);
   const [teamName, setTeamName] = useState("");
+  const [previousTeam, setPreviousTeam] = useState(null);
+  const [activeTeam, setActiveTeam] = useState(null);
   const laneRoles = [
     { key: 'exp', label: 'Exp Lane' },
     { key: 'mid', label: 'Mid Lane' },
@@ -27,7 +33,11 @@ export default function LandingPage() {
 
   const handleLogoChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setTeamLogo(URL.createObjectURL(e.target.files[0]));
+      const file = e.target.files[0];
+      // Create a preview URL for the UI
+      setTeamLogo(URL.createObjectURL(file));
+      // Store the file for upload
+      setTeamLogoFile(file);
     }
   };
 
@@ -47,34 +57,213 @@ export default function LandingPage() {
     setPlayers(players.filter((_, i) => i !== idx));
   };
 
-  const handleConfirm = () => {
-    // Save current latestTeam to teamsHistory (history)
-    const prevTeam = localStorage.getItem('latestTeam');
-    if (prevTeam) {
-      const history = JSON.parse(localStorage.getItem('teamsHistory')) || [];
-      history.push(JSON.parse(prevTeam));
-      localStorage.setItem('teamsHistory', JSON.stringify(history));
+  // Load active team and fetch teams from API
+  useEffect(() => {
+    const loadActiveTeam = async () => {
+      try {
+        // First try to get active team from API
+        const response = await fetch('/api/teams/active');
+        if (response.ok) {
+          const activeTeamData = await response.json();
+          setActiveTeam(activeTeamData);
+        } else {
+          // If no active team in backend, clear localStorage and don't set any team
+          console.log('No active team in backend, clearing localStorage');
+          localStorage.removeItem('latestTeam');
+          setActiveTeam(null);
+        }
+      } catch (error) {
+        console.error('Error loading active team:', error);
+        // If API fails, clear localStorage and don't set any team
+        console.log('API error, clearing localStorage');
+        localStorage.removeItem('latestTeam');
+        setActiveTeam(null);
+      }
+    };
+
+    const fetchTeams = async () => {
+      setLoadingTeams(true);
+      try {
+        const response = await fetch('/api/teams');
+        if (response.ok) {
+          const teamsData = await response.json();
+          setTeams(teamsData);
+        }
+      } catch (error) {
+        console.error('Error fetching teams:', error);
+      } finally {
+        setLoadingTeams(false);
+      }
+    };
+
+    loadActiveTeam();
+    fetchTeams();
+  }, []);
+
+  const handleContinueWithCurrentTeam = () => {
+    if (activeTeam) {
+      // Navigate to home page with the active team pre-selected
+      navigate('/home', { 
+        state: { 
+          selectedTeam: activeTeam.teamName,
+          activeTeamData: activeTeam 
+        } 
+      });
+    } else {
+      // If no active team, show team picker
+      setShowTeamPickerModal(true);
     }
-    // Save new team as latestTeam
-    localStorage.setItem('latestTeam', JSON.stringify({
-      teamName,
-      players
-    }));
-    // Clear draft data for new team
-    localStorage.removeItem('latestMatch');
-    // Redirect to HomePage.js
-    navigate('/home');
-    // Reset modal state
-    setShowAddTeamModal(false);
-    setTeamLogo(null);
-    setTeamName("");
-    setPlayers([
-      { role: "exp", name: "" },
-      { role: "mid", name: "" },
-      { role: "jungler", name: "" },
-      { role: "gold", name: "" },
-      { role: "roam", name: "" },
-    ]);
+  };
+
+  const handleSwitchOrAddTeam = () => {
+    // If no teams exist, directly open team creation modal
+    if (teams.length === 0) {
+      setShowAddTeamModal(true);
+    } else {
+      // If teams exist, open team picker modal
+      setShowTeamPickerModal(true);
+    }
+  };
+
+  const handleSelectTeam = async (teamId) => {
+    try {
+      const response = await fetch('/api/teams/set-active', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ team_id: teamId }),
+      });
+
+      if (response.ok) {
+        // Store the selected team in localStorage for the frontend
+        const selectedTeam = teams.find(team => team.id === teamId);
+        const teamData = {
+          teamName: selectedTeam.name,
+          players: selectedTeam.players_data || [],
+          id: selectedTeam.id
+        };
+        
+        localStorage.setItem('latestTeam', JSON.stringify(teamData));
+        setActiveTeam(teamData);
+        
+        setShowTeamPickerModal(false);
+        navigate('/home', { 
+          state: { 
+            selectedTeam: selectedTeam.name,
+            activeTeamData: teamData 
+          } 
+        });
+      }
+    } catch (error) {
+      console.error('Error setting active team:', error);
+    }
+  };
+
+  const handleConfirm = async () => {
+    try {
+      let logoPath = null;
+      
+      // Upload logo file if exists
+      if (teamLogoFile) {
+        console.log('Uploading logo file:', teamLogoFile.name);
+        const formData = new FormData();
+        formData.append('logo', teamLogoFile);
+        
+        const uploadResponse = await fetch('/api/teams/upload-logo', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json();
+          logoPath = uploadResult.logo_path;
+          console.log('Logo uploaded successfully:', logoPath);
+        } else {
+          console.error('Failed to upload logo:', await uploadResponse.text());
+        }
+      } else {
+        console.log('No logo file to upload');
+      }
+      
+      // Save team to database
+      const response = await fetch('/api/teams', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: teamName,
+          players: players,
+          logo_path: logoPath
+        }),
+      });
+
+      if (response.ok) {
+        const newTeam = await response.json();
+        
+        // Save current latestTeam to teamsHistory (history)
+        const prevTeam = localStorage.getItem('latestTeam');
+        if (prevTeam) {
+          const history = JSON.parse(localStorage.getItem('teamsHistory')) || [];
+          history.push(JSON.parse(prevTeam));
+          localStorage.setItem('teamsHistory', JSON.stringify(history));
+        }
+        
+        // Set the new team as active in the backend session
+        try {
+          const setActiveResponse = await fetch('/api/teams/set-active', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ team_id: newTeam.id }),
+          });
+          
+          if (setActiveResponse.ok) {
+            console.log('New team set as active:', newTeam.name);
+          }
+        } catch (error) {
+          console.error('Error setting new team as active:', error);
+        }
+        
+        // Save new team as latestTeam
+        const teamData = {
+          teamName,
+          players,
+          id: newTeam.id
+        };
+        localStorage.setItem('latestTeam', JSON.stringify(teamData));
+        
+        // Clear ALL data for new team to ensure complete isolation
+        localStorage.removeItem('latestMatch');
+        sessionStorage.clear();
+        
+        // Redirect to HomePage.js with team data and force fresh start
+        navigate('/home', { 
+          state: { 
+            selectedTeam: teamName,
+            activeTeamData: teamData,
+            isNewTeam: true // Flag to indicate this is a new team
+          } 
+        });
+        
+        // Reset modal state
+        setShowAddTeamModal(false);
+        setTeamLogo(null);
+        setTeamLogoFile(null);
+        setTeamName("");
+        setPlayers([
+          { role: "exp", name: "" },
+          { role: "mid", name: "" },
+          { role: "jungler", name: "" },
+          { role: "gold", name: "" },
+          { role: "roam", name: "" },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error creating team:', error);
+    }
   };
 
   return (
@@ -158,6 +347,18 @@ export default function LandingPage() {
           >
             Cody Banks Draft<br /> and Statistics System
           </h1>
+          
+          {/* Welcome Message */}
+          <div style={{
+            color: '#f3f4f6',
+            fontSize: 18,
+            marginBottom: 24,
+            fontWeight: 600,
+            textShadow: '0 2px 12px #000a',
+          }}>
+            👋 Welcome back, Coach!
+          </div>
+          
           <p
             style={{
               color: '#f3f4f6',
@@ -171,16 +372,116 @@ export default function LandingPage() {
           >
             The ultimate draft and statistics platform for esports teams. Track, analyze, and strategize your matches with a game-inspired experience.
           </p>
+          
+          {/* Active Team Section */}
+          {activeTeam && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%)',
+                border: '2px solid rgba(34, 197, 94, 0.3)',
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 24,
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 20px rgba(34, 197, 94, 0.2)',
+              }}
+              onClick={handleContinueWithCurrentTeam}
+              onMouseEnter={() => setHoveredBtn('activeteam')}
+              onMouseLeave={() => setHoveredBtn(null)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #22c55e 0%, #10b981 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                  boxShadow: '0 2px 8px rgba(34, 197, 94, 0.4)',
+                }}>
+                  <span style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>🟢</span>
+                </div>
+                <div>
+                  <h3 style={{
+                    color: '#fff',
+                    fontSize: 18,
+                    fontWeight: 700,
+                    margin: 0,
+                    textShadow: '0 2px 8px #0008',
+                  }}>
+                    Continue with {activeTeam.teamName}
+                  </h3>
+                  <p style={{
+                    color: '#bbf7d0',
+                    fontSize: 13,
+                    margin: 0,
+                    fontWeight: 500,
+                  }}>
+                    🟢 Active • {activeTeam.players?.length || 0} players • Click to continue
+                  </p>
+                </div>
+              </div>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 6,
+                }}>
+                  {activeTeam.players?.slice(0, 3).map((player, index) => (
+                    <span key={index} style={{
+                      background: 'rgba(34, 197, 94, 0.2)',
+                      color: '#86efac',
+                      fontSize: 11,
+                      padding: '4px 8px',
+                      borderRadius: 8,
+                      fontWeight: 600,
+                      border: '1px solid rgba(34, 197, 94, 0.3)',
+                    }}>
+                      {player.name}
+                    </span>
+                  ))}
+                  {activeTeam.players?.length > 3 && (
+                    <span style={{
+                      background: 'rgba(34, 197, 94, 0.2)',
+                      color: '#86efac',
+                      fontSize: 11,
+                      padding: '4px 8px',
+                      borderRadius: 8,
+                      fontWeight: 600,
+                      border: '1px solid rgba(34, 197, 94, 0.3)',
+                    }}>
+                      +{activeTeam.players.length - 3} more
+                    </span>
+                  )}
+                </div>
+                <div style={{
+                  color: hoveredBtn === 'activeteam' ? '#22c55e' : '#10b981',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  transition: 'color 0.3s ease',
+                }}>
+                  {hoveredBtn === 'activeteam' ? '→ Continue' : '→'}
+                </div>
+              </div>
+            </div>
+          )}
           <button
             style={{
-              width: buttonWidth,
-              background: hoveredBtn === 'getstarted' ? 'transparent' : 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)',
-              color: hoveredBtn === 'getstarted' ? '#3b82f6' : '#fff',
+              width: '280px',
+              background: hoveredBtn === 'switchteam' ? 'transparent' : 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)',
+              color: hoveredBtn === 'switchteam' ? '#3b82f6' : '#fff',
               fontWeight: 800,
               fontSize: 18,
-              padding: '14px 36px',
+              padding: '10px 36px',
               borderRadius: 12,
-              border: '2px solid ' + (hoveredBtn === 'getstarted' ? '#3b82f6' : 'transparent'),
+              border: '2px solid ' + (hoveredBtn === 'switchteam' ? '#3b82f6' : 'transparent'),
               boxShadow: '0 4px 24px 0 #3b82f644',
               cursor: 'pointer',
               letterSpacing: 1,
@@ -190,35 +491,13 @@ export default function LandingPage() {
               marginBottom: 16,
               boxSizing: 'border-box',
             }}
-            onClick={() => navigate('/home')}
+            onClick={handleSwitchOrAddTeam}
             onMouseLeave={() => setHoveredBtn(null)}
-            onMouseOver={() => setHoveredBtn('getstarted')}
+            onMouseOver={() => setHoveredBtn('switchteam')}
           >
-            Get Started
+            {teams.length === 0 ? '👉 Add Your Team Now' : '🔄 Switch or Add New Team'}
           </button>
-          <button
-            style={{
-              width: buttonWidth,
-              background: hoveredBtn === 'addteam' ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : 'transparent',
-              color: hoveredBtn === 'addteam' ? '#fff' : '#3b82f6',
-              fontWeight: 700,
-              fontSize: 17,
-              padding: '12px 32px',
-              borderRadius: 10,
-              border: '2px solid ' + (hoveredBtn === 'addteam' ? 'transparent' : '#3b82f6'),
-              cursor: 'pointer',
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              transition: 'background 0.25s, color 0.25s, border 0.25s',
-              marginBottom: 4,
-              boxSizing: 'border-box',
-            }}
-            onClick={() => setShowAddTeamModal(true)}
-            onMouseLeave={() => setHoveredBtn(null)}
-            onMouseOver={() => setHoveredBtn('addteam')}
-          >
-            + Add Team
-          </button>
+
         </div>
       </div>
       {showAddTeamModal && (
@@ -295,6 +574,136 @@ export default function LandingPage() {
             >
               Confirm
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Team Picker Modal */}
+      {showTeamPickerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="relative bg-gradient-to-b from-gray-700 to-gray-800 rounded-2xl border-2 border-blue-400 shadow-2xl w-[95vw] max-w-2xl p-8 flex flex-col">
+            {/* Close button */}
+            <button 
+              className="absolute top-4 right-4 text-gray-300 hover:text-white text-2xl font-bold" 
+              onClick={() => setShowTeamPickerModal(false)}
+            >
+              &times;
+            </button>
+            
+            {/* Modal Header */}
+            <div className="text-center mb-6">
+              <h2 className="text-white text-2xl font-bold mb-2">🔽 Select Your Team</h2>
+              <p className="text-gray-300">Choose an existing team or create a new one</p>
+            </div>
+
+            {/* Teams List */}
+            <div className="flex-1 overflow-y-auto max-h-96">
+              {loadingTeams ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                  <span className="text-white ml-3">Loading teams...</span>
+                </div>
+              ) : teams.length > 0 ? (
+                <div className="space-y-3">
+                  {teams.map((team) => {
+                    const isActive = activeTeam && activeTeam.id === team.id;
+                    const lastUsed = team.last_used_at ? new Date(team.last_used_at).toLocaleDateString() : 'Never used';
+                    
+                    return (
+                      <div 
+                        key={team.id} 
+                        className={`rounded-xl p-4 border transition-colors ${
+                          isActive 
+                            ? 'bg-green-600 bg-opacity-20 border-green-400' 
+                            : 'bg-gray-600 bg-opacity-40 border-gray-500 hover:border-blue-400'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            {team.logo_path ? (
+                              <img 
+                                src={team.logo_path} 
+                                alt={`${team.name} logo`} 
+                                className="w-12 h-12 rounded-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div 
+                              className={`w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg ${team.logo_path ? 'hidden' : 'flex'}`}
+                            >
+                              {team.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <h3 className="text-white font-semibold text-lg">{team.name}</h3>
+                                {isActive && (
+                                  <span className="text-green-400 text-sm font-medium">🟢 Active</span>
+                                )}
+                              </div>
+                              <p className="text-gray-300 text-sm">
+                                {team.players_data?.length || 0} players • Last used {lastUsed}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleSelectTeam(team.id)}
+                            className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                              isActive 
+                                ? 'bg-green-500 hover:bg-green-600 text-white' 
+                                : 'bg-blue-500 hover:bg-blue-600 text-white'
+                            }`}
+                          >
+                            {isActive ? 'Continue' : 'Select'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-300 mb-4">No teams found. Please create a new one.</p>
+                  <button
+                    onClick={() => {
+                      setShowTeamPickerModal(false);
+                      setShowAddTeamModal(true);
+                    }}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    Create New Team
+                  </button>
+                </div>
+              )}
+              
+              {/* Add New Team Button - Always show when teams exist */}
+              {teams.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-gray-600">
+                  <button
+                    onClick={() => {
+                      setShowTeamPickerModal(false);
+                      setShowAddTeamModal(true);
+                    }}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span>➕</span>
+                    Add New Team
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="mt-6 pt-4 border-t border-gray-600 flex justify-end">
+              <button
+                onClick={() => setShowTeamPickerModal(false)}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

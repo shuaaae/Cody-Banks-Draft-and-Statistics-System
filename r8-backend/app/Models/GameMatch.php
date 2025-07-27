@@ -16,12 +16,19 @@ class GameMatch extends Model
         'turtle_taken',
         'lord_taken',
         'notes',
-        'playstyle'
+        'playstyle',
+        'team_id'
     ];
 
     // Relationship to teams
     public function teams()
     {
         return $this->hasMany(MatchTeam::class, 'match_id');
+    }
+
+    // Relationship to the team that created this match
+    public function team()
+    {
+        return $this->belongsTo(Team::class);
     }
 }
