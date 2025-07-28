@@ -70,6 +70,28 @@ class PlayerController extends Controller
         return response()->json(['error' => 'No photo uploaded'], 400);
     }
 
+    public function getPhotoByName(Request $request)
+    {
+        $request->validate([
+            'playerName' => 'required|string',
+        ]);
+
+        // Get the active team ID from session
+        $activeTeamId = session('active_team_id');
+
+        $player = Player::where('name', $request->input('playerName'))
+                       ->where('team_id', $activeTeamId)
+                       ->first();
+
+        if ($player && $player->photo) {
+            return response()->json([
+                'photo_path' => $player->photo
+            ], 200);
+        }
+
+        return response()->json(['error' => 'Player not found or no photo'], 404);
+    }
+
     public function index()
     {
         // Get the active team ID from session
@@ -142,12 +164,14 @@ class PlayerController extends Controller
         // Get the active team ID from session
         $activeTeamId = session('active_team_id');
         $teamName = $request->query('teamName');
+        $role = $request->query('role'); // Get role parameter for unique player identification
         
         // Debug logging
         \Log::info("Player stats request", [
             'playerName' => $playerName,
             'activeTeamId' => $activeTeamId,
-            'teamName' => $teamName
+            'teamName' => $teamName,
+            'role' => $role
         ]);
         
         // Get match_teams joined with matches, filtered by team name or active team
@@ -187,12 +211,14 @@ class PlayerController extends Controller
             // Combine picks1 and picks2
             $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
             foreach ($picks as $pick) {
-                // Only count if player matches (team is already filtered by active team)
+                // Only count if player matches and role matches (for unique identification)
                 if (
                     is_array($pick) &&
                     isset($pick['hero']) &&
                     isset($pick['player']) &&
-                    strtolower($pick['player']) === strtolower($playerName)
+                    strtolower($pick['player']) === strtolower($playerName) &&
+                    isset($pick['lane']) &&
+                    (!$role || strtolower($pick['lane']) === strtolower($role))
                 ) {
                     $hero = $pick['hero'];
                 } else {
@@ -229,11 +255,13 @@ class PlayerController extends Controller
     public function heroH2HStatsByTeam(Request $request, $playerName)
     {
         $teamName = $request->query('teamName');
+        $role = $request->query('role'); // Get role parameter for unique player identification
         
         // Debug logging
         \Log::info("Player H2H stats request", [
             'playerName' => $playerName,
-            'teamName' => $teamName
+            'teamName' => $teamName,
+            'role' => $role
         ]);
         
         // Filter by team name if provided
@@ -271,7 +299,8 @@ class PlayerController extends Controller
                     isset($pick['team']) &&
                     isset($pick['lane']) &&
                     strtolower($pick['player']) === strtolower($playerName) &&
-                    strtolower($pick['team']) === strtolower($teamName)
+                    strtolower($pick['team']) === strtolower($teamName) &&
+                    (!$role || strtolower($pick['lane']) === strtolower($role))
                 ) {
                     $playerHero = $pick['hero'];
                     $lane = $pick['lane'];

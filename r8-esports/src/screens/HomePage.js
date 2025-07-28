@@ -690,17 +690,34 @@ export default function HomePage() {
         setLordTakenRed('');
         setNotes('');
         setPlaystyle('');
-        // Refetch all matches and sort latest to oldest
-        fetch('/api/matches')
+        // Refetch matches for current team only
+        const currentTeamData = JSON.parse(localStorage.getItem('latestTeam'));
+        const teamId = currentTeamData?.id;
+        
+        fetch(`/api/matches${teamId ? `?team_id=${teamId}` : ''}`)
           .then(res => res.json())
-          .then(allMatches => {
-            if (allMatches && allMatches.length > 0) {
-              allMatches.sort((a, b) => {
+          .then(teamMatches => {
+            if (teamMatches && teamMatches.length > 0) {
+              teamMatches.sort((a, b) => {
                 if (a.match_date === b.match_date) return b.id - a.id;
                 return new Date(b.match_date) - new Date(a.match_date);
               });
-              setMatches(allMatches);
+              setMatches(teamMatches);
+              // Update cache with filtered data
+              setCachedMatches(teamMatches);
+              setLastFetchTime(Date.now());
+            } else {
+              setMatches([]);
+              setCachedMatches([]);
+              setLastFetchTime(Date.now());
             }
+          })
+          .catch(error => {
+            console.error('Error refetching matches after export:', error);
+            // On error, still clear the form and close modal
+            setMatches([]);
+            setCachedMatches([]);
+            setLastFetchTime(Date.now());
           });
       } else {
         // Get the error response from the server

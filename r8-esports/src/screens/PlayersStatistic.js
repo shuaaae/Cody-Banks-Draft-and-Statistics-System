@@ -3,15 +3,20 @@ import mobaImg from '../assets/moba1.png';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
 import defaultPlayer from '../assets/default.png';
-import teamLogo from '../assets/teamlogo.jpg';
-import expIcon from '../assets/exp.jpg';
-import midIcon from '../assets/mid.jpg';
-import junglerIcon from '../assets/jungle.jpg';
-import goldIcon from '../assets/gold.jpg';
-import roamIcon from '../assets/roam.jpg';
+import expIcon from '../assets/exp.png';
+import midIcon from '../assets/mid.png';
+import junglerIcon from '../assets/jungle.png';
+import goldIcon from '../assets/gold.png';
+import roamIcon from '../assets/roam.png';
+import expBg from '../assets/expbg.jpg';
+import midBg from '../assets/midbg.jpg';
+import roamBg from '../assets/roambg.jpg';
+import goldBg from '../assets/goldbg.jpg';
+import jungleBg from '../assets/junglebg.jpg';
 import { Bar } from 'react-chartjs-2';
 import { Chart, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip } from 'chart.js';
-import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar } from 'react-icons/fa';
+import { FaUsers, FaChartLine } from 'react-icons/fa';
+import { FaHome, FaDraftingCompass, FaUserFriends, FaChartBar } from 'react-icons/fa';
 
 Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip);
 
@@ -30,40 +35,164 @@ const scrollbarHideStyles = `
 const PlayerCard = ({ lane, player, hero, highlight, onClick, getPlayerPhoto }) => {
   const playerPhoto = getPlayerPhoto ? getPlayerPhoto(player.name) : (player.photo ? player.photo : defaultPlayer);
   
+
+  
   return (
     <button
       type="button"
-      className="relative flex items-center bg-[#111216] shadow-lg transition-all duration-200 overflow-hidden w-[520px] h-[150px] p-0 cursor-pointer focus:outline-none"
-      style={{ borderRadius: 0, minWidth: 0, border: 'none' }}
+      className="group relative flex items-center shadow-lg transition-all duration-300 overflow-hidden w-[520px] h-[150px] p-0 cursor-pointer focus:outline-none hover:shadow-2xl hover:scale-105 hover:border-l-4 hover:border-blue-500"
+      style={{ 
+        borderRadius: '12px 12px 12px 0px', 
+        minWidth: 0, 
+        border: 'none',
+        background: (lane.key === 'exp' || lane.key === 'mid' || lane.key === 'roam' || lane.key === 'gold' || lane.key === 'jungler') ? 'transparent' : '#111216'
+      }}
+      onMouseEnter={(e) => {
+        if (lane.key === 'exp') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="exp"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${expBg}) center/cover`;
+          }
+        } else if (lane.key === 'mid') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="mid"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${midBg}) center/cover`;
+          }
+        } else if (lane.key === 'roam') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="roam"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${roamBg}) center/cover`;
+          }
+        } else if (lane.key === 'gold') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="gold"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${goldBg}) center/cover`;
+          }
+        } else if (lane.key === 'jungler') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="jungler"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${jungleBg}) center/cover`;
+          }
+        } else {
+          e.target.style.background = '#1a1d2a';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (lane.key === 'exp') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="exp"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${expBg}) center/cover`;
+          }
+        } else if (lane.key === 'mid') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="mid"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${midBg}) center/cover`;
+          }
+        } else if (lane.key === 'roam') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="roam"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${roamBg}) center/cover`;
+          }
+        } else if (lane.key === 'gold') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="gold"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${goldBg}) center/cover`;
+          }
+        } else if (lane.key === 'jungler') {
+          const bgDiv = e.currentTarget.querySelector('div[data-lane="jungler"]');
+          if (bgDiv) {
+            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${jungleBg}) center/cover`;
+          }
+        } else {
+          e.target.style.background = '#111216';
+        }
+      }}
       onClick={onClick}
     >
-      <div className="relative flex-shrink-0 z-20" style={{ width: 140, height: 160, marginLeft: -30 }}>
-        <img
-          src={player.teamLogo}
-          alt="Team Logo BG"
-          className="absolute left-[70%] top-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
+      {/* Background image for exp, mid, roam, gold, and jungle lanes - positioned at the very back */}
+      {lane.key === 'exp' && (
+        <div 
+          className="absolute inset-0 z-0"
           style={{
-            width: 400,
-            height: 400,
-            opacity: 0.3,
-            zIndex: 1,
-            objectFit: 'contain',
-            filter: 'drop-shadow(0 0 16px #0008)'
+            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${expBg}) center/cover`,
+            borderRadius: '12px 12px 12px 0px'
           }}
+          title="Exp lane background"
+          data-lane="exp"
         />
+      )}
+      {lane.key === 'mid' && (
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${midBg}) center/cover`,
+            borderRadius: '12px 12px 12px 0px'
+          }}
+          title="Mid lane background"
+          data-lane="mid"
+        />
+      )}
+      {lane.key === 'roam' && (
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${roamBg}) center/cover`,
+            borderRadius: '12px 12px 12px 0px'
+          }}
+          title="Roam lane background"
+          data-lane="roam"
+        />
+      )}
+      {lane.key === 'gold' && (
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${goldBg}) center/cover`,
+            borderRadius: '12px 12px 12px 0px'
+          }}
+          title="Gold lane background"
+          data-lane="gold"
+        />
+      )}
+      {lane.key === 'jungler' && (
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${jungleBg}) center/cover`,
+            borderRadius: '12px 12px 12px 0px'
+          }}
+          title="Jungle lane background"
+          data-lane="jungler"
+        />
+      )}
+      <div className="relative flex-shrink-0 z-20" style={{ width: 140, height: 160, marginLeft: -30 }}>
         <img
           src={playerPhoto}
           alt="Player"
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[140px] h-[160px] object-cover rounded-xl z-10"
-          style={{ objectPosition: 'center' }}
+          className="absolute bottom-0 w-[140px] h-[160px] object-cover rounded-xl z-10 transition-all duration-300 group-hover:scale-110 group-hover:shadow-2xl"
+          style={{ 
+            objectPosition: 'center',
+            left: '60%',
+            transform: 'translateX(-50%)'
+          }}
+          onError={(e) => {
+            console.error(`Failed to load image: ${playerPhoto}`);
+            e.target.src = defaultPlayer;
+          }}
+          onLoad={() => {
+            console.log(`Image loaded successfully: ${playerPhoto}`);
+          }}
         />
       </div>
       <div className="flex-1 ml-8 min-w-0 flex flex-col justify-center z-30">
         <div className="flex flex-row items-center justify-between w-full">
           <div className="text-white text-[1.35rem] font-bold tracking-wide truncate leading-tight">{player.name}</div>
           <div className="flex flex-col items-end ml-4 min-w-[90px] mr-8">
-            <img src={lane.icon} alt={lane.label} className="w-8 h-8 object-contain mb-1" />
-            <span className="text-yellow-300 text-xs font-extrabold tracking-widest">{lane.label}</span>
+            <img 
+              src={lane.icon} 
+              alt={lane.label} 
+              className="w-20 h-20 object-contain mb-1 transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg" 
+            />
           </div>
         </div>
       </div>
@@ -82,7 +211,7 @@ const LANES = [
 const PLAYER = {
   name: 'Player',
   photo: defaultPlayer,
-  teamLogo: teamLogo,
+                // teamLogo removed
 };
 
 function PlayersStatistic() {
@@ -153,17 +282,15 @@ function PlayersStatistic() {
     const imagePromises = teamPlayers.players.map(async (player) => {
       if (!player.name) return;
       
+      const playerIdentifier = getPlayerIdentifier(player.name, player.role);
+      
       try {
         // Check if image is already cached
-        if (newImageCache[player.name]) return;
+        if (newImageCache[playerIdentifier]) return;
         
         // Try to fetch player photo from server
-        const response = await fetch(`/api/players/photo-by-name`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ playerName: player.name }),
+        const response = await fetch(`/api/players/photo-by-name?playerName=${encodeURIComponent(player.name)}`, {
+          method: 'GET',
         });
         
         if (response.ok) {
@@ -174,8 +301,11 @@ function PlayersStatistic() {
             img.onload = () => {
               setImageCache(prev => ({
                 ...prev,
-                [player.name]: data.photo_path
+                [playerIdentifier]: data.photo_path
               }));
+            };
+            img.onerror = () => {
+              console.error(`Failed to load image for ${player.name}:`, data.photo_path);
             };
             img.src = data.photo_path;
           }
@@ -276,20 +406,45 @@ function PlayersStatistic() {
   }, [currentTeamId]);
 
   // Get cached player photo or default
-  const getPlayerPhoto = useCallback((playerName) => {
-    // First check memory cache
-    if (imageCache[playerName]) {
-      return imageCache[playerName];
+  const getPlayerPhoto = useCallback((playerName, playerRole) => {
+    const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
+    
+    // First check memory cache with the full identifier
+    if (imageCache[playerIdentifier]) {
+      return imageCache[playerIdentifier];
+    }
+    
+    // If not found and we have a role, try to find by name only (for players with null roles in DB)
+    if (playerRole && !imageCache[playerIdentifier]) {
+      const nameOnlyIdentifier = playerName;
+      if (imageCache[nameOnlyIdentifier]) {
+        return imageCache[nameOnlyIdentifier];
+      }
     }
     
     // Check localStorage for cached photo
-    const cachedPhoto = localStorage.getItem(`playerPhoto_${playerName}`);
+    const cachedPhoto = localStorage.getItem(`playerPhoto_${playerIdentifier}`);
     if (cachedPhoto) {
       return cachedPhoto;
     }
     
+    // If not found and we have a role, try to find by name only in localStorage
+    if (playerRole) {
+      const nameOnlyCachedPhoto = localStorage.getItem(`playerPhoto_${playerName}`);
+      if (nameOnlyCachedPhoto) {
+        return nameOnlyCachedPhoto;
+      }
+    }
+    
     // Check if player exists in players array and has a photo
-    const player = players.find(p => p.name === playerName);
+    // First try to find by name and role
+    let player = players.find(p => p.name === playerName && p.role === playerRole);
+    
+    // If not found and role is null, try to find by name only
+    if (!player && (playerRole === null || playerRole === undefined)) {
+      player = players.find(p => p.name === playerName);
+    }
+    
     if (player && player.photo) {
       return player.photo;
     }
@@ -301,15 +456,16 @@ function PlayersStatistic() {
     fetch('/api/players')
       .then(res => res.json())
       .then(data => {
-        const playersWithTeamLogo = data.map(p => ({ ...p, teamLogo }));
-        setPlayers(playersWithTeamLogo);
+        setPlayers(data);
         
         // Cache any existing player photos
         const newImageCache = { ...imageCache };
-        playersWithTeamLogo.forEach(player => {
+        data.forEach(player => {
           if (player.name && player.photo) {
-            newImageCache[player.name] = player.photo;
-            localStorage.setItem(`playerPhoto_${player.name}`, player.photo);
+            // Cache by name only for players with null role
+            const cacheKey = player.role ? `${player.name}_${player.role}` : player.name;
+            newImageCache[cacheKey] = player.photo;
+            localStorage.setItem(`playerPhoto_${cacheKey}`, player.photo);
           }
         });
         setImageCache(newImageCache);
@@ -333,19 +489,21 @@ function PlayersStatistic() {
           
           await Promise.all(
             teamPlayers.players.map(async (p) => {
-              if (!p.name) return;
+              if (!p.name || !p.role) return;
+              
+              const playerIdentifier = getPlayerIdentifier(p.name, p.role);
               
               // Fetch both regular stats and H2H stats in parallel
               const [statsRes, h2hRes] = await Promise.all([
-                fetch(`/api/players/${encodeURIComponent(p.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}`),
-                fetch(`/api/players/${encodeURIComponent(p.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}`)
+                fetch(`/api/players/${encodeURIComponent(p.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}&role=${encodeURIComponent(p.role)}`),
+                fetch(`/api/players/${encodeURIComponent(p.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}&role=${encodeURIComponent(p.role)}`)
               ]);
               
               const statsData = await statsRes.json();
               const h2hData = await h2hRes.json();
               
-              statsObj[p.name] = statsData;
-              h2hStatsObj[p.name] = h2hData;
+              statsObj[playerIdentifier] = statsData;
+              h2hStatsObj[playerIdentifier] = h2hData;
             })
           );
           
@@ -391,15 +549,30 @@ function PlayersStatistic() {
   // Use cached stats for modal - instant display
   useEffect(() => {
     if (modalInfo && modalInfo.player && modalInfo.player.name) {
-      const cached = allPlayerStats[modalInfo.player.name];
-      const cachedH2H = allPlayerH2HStats[modalInfo.player.name];
+      const playerIdentifier = modalInfo.player.identifier || getPlayerIdentifier(modalInfo.player.name, modalInfo.player.role);
+      const cached = allPlayerStats[playerIdentifier];
+      const cachedH2H = allPlayerH2HStats[playerIdentifier];
       
-      // Set stats immediately from cache
-      setHeroStats(cached || []);
-      setHeroH2HStats(cachedH2H || []);
+      // Set loading state when modal opens and clear previous stats
+      setIsLoadingStats(true);
+      setHeroStats([]);
+      setHeroH2HStats([]);
+      
+      // Set stats immediately from cache if available
+      if (cached) {
+        setHeroStats(cached);
+      }
+      if (cachedH2H) {
+        setHeroH2HStats(cachedH2H);
+      }
+      
+      // If both are cached, we can hide loading immediately
+      if (cached && cachedH2H) {
+        setIsLoadingStats(false);
+      }
       
       // Load player evaluation data for this specific player
-      const savedPlayerEvaluation = localStorage.getItem(`playerEvaluation_${modalInfo.player.name}`);
+      const savedPlayerEvaluation = localStorage.getItem(`playerEvaluation_${playerIdentifier}`);
       if (savedPlayerEvaluation) {
         setPlayerEvaluation(JSON.parse(savedPlayerEvaluation));
       } else {
@@ -426,7 +599,7 @@ function PlayersStatistic() {
       }
       
       // Load hero evaluation data for this specific player
-      const savedHeroEvaluation = localStorage.getItem(`heroEvaluation_${modalInfo.player.name}`);
+      const savedHeroEvaluation = localStorage.getItem(`heroEvaluation_${playerIdentifier}`);
       if (savedHeroEvaluation) {
         setHeroEvaluation(JSON.parse(savedHeroEvaluation));
       } else {
@@ -445,20 +618,43 @@ function PlayersStatistic() {
       // If not cached, fetch (fallback)
       if (!cached || !cachedH2H) {
         const teamName = getCurrentTeamName();
+        const role = modalInfo.player.role;
+        
+        const fetchPromises = [];
+        
         if (!cached) {
-          fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamName)}`)
-            .then(res => res.json())
-            .then(data => setHeroStats(data));
+          fetchPromises.push(
+            fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamName)}&role=${encodeURIComponent(role)}`)
+              .then(res => res.json())
+              .then(data => setHeroStats(data))
+          );
         }
+        
         if (!cachedH2H) {
-          fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamName)}`)
-            .then(res => res.json())
-            .then(data => setHeroH2HStats(data));
+          fetchPromises.push(
+            fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamName)}&role=${encodeURIComponent(role)}`)
+              .then(res => res.json())
+              .then(data => setHeroH2HStats(data))
+          );
         }
+        
+        // Wait for all fetches to complete before hiding loading
+        Promise.all(fetchPromises)
+          .then(() => {
+            setIsLoadingStats(false);
+          })
+          .catch((error) => {
+            console.error('Error fetching player stats:', error);
+            setIsLoadingStats(false);
+          });
+      } else {
+        // If all data is cached, hide loading immediately since both tables will show
+        setIsLoadingStats(false);
       }
     } else {
       setHeroStats([]);
       setHeroH2HStats([]);
+      setIsLoadingStats(false);
     }
   }, [modalInfo, allPlayerStats, allPlayerH2HStats, getCurrentTeamName]);
 
@@ -488,6 +684,23 @@ function PlayersStatistic() {
     return `Player ${laneIdx + 1}`;
   }
 
+  // Create unique player identifier using name and role
+  function getPlayerIdentifier(playerName, role) {
+    return role ? `${playerName}_${role}` : playerName;
+  }
+
+  // Get player role by lane key
+  function getRoleByLaneKey(laneKey) {
+    const roleMap = {
+      'exp': 'exp',
+      'mid': 'mid', 
+      'jungler': 'jungler',
+      'gold': 'gold',
+      'roam': 'roam'
+    };
+    return roleMap[laneKey] || laneKey;
+  }
+
   function getHeroForLaneByLaneKey(laneKey, lanePlayers) {
     if (!lanePlayers) return null;
     const found = Array.isArray(lanePlayers)
@@ -496,12 +709,11 @@ function PlayersStatistic() {
     return found ? found.hero : null;
   }
 
-  function handleFileSelect(e, playerName) {
+  function handleFileSelect(e, playerName, playerRole) {
     const file = e.target.files[0];
     if (!file || !playerName) return;
-    const player = players.find(p => p.name === playerName);
-    const playerId = player ? player.id : 1;
-    setPendingPhoto({ file, playerName, playerId });
+    const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
+    setPendingPhoto({ file, playerName, playerRole, playerIdentifier });
     setShowConfirmModal(true);
   }
 
@@ -512,6 +724,7 @@ function PlayersStatistic() {
       const formData = new FormData();
       formData.append('photo', pendingPhoto.file);
       formData.append('playerName', pendingPhoto.playerName);
+      formData.append('playerRole', pendingPhoto.playerRole);
       const response = await fetch(`/api/players/photo-by-name`, {
         method: 'POST',
         body: formData,
@@ -519,26 +732,37 @@ function PlayersStatistic() {
       if (response.ok) {
         const data = await response.json();
         
-        // Cache the uploaded image
+        // Cache the uploaded image using unique identifier
         if (data.photo_path) {
           setImageCache(prev => ({
             ...prev,
-            [pendingPhoto.playerName]: data.photo_path
+            [pendingPhoto.playerIdentifier]: data.photo_path
           }));
           // Also cache in localStorage for persistence
-          localStorage.setItem(`playerPhoto_${pendingPhoto.playerName}`, data.photo_path);
+          localStorage.setItem(`playerPhoto_${pendingPhoto.playerIdentifier}`, data.photo_path);
         }
         
         setPlayers(prev => {
-          const idx = prev.findIndex(p => p.name === pendingPhoto.playerName);
+          // Find player by name and role, or by name only if role is null
+          let idx = prev.findIndex(p => 
+            p.name === pendingPhoto.playerName && p.role === pendingPhoto.playerRole
+          );
+          
+          if (idx === -1 && (pendingPhoto.playerRole === null || pendingPhoto.playerRole === undefined)) {
+            idx = prev.findIndex(p => p.name === pendingPhoto.playerName);
+          }
+          
           if (idx !== -1) {
             // Update existing player
             return prev.map(p =>
-              p.name === pendingPhoto.playerName ? { ...p, photo: data.photo_path } : p
+              (p.name === pendingPhoto.playerName && 
+               (pendingPhoto.playerRole === null ? p.role === null : p.role === pendingPhoto.playerRole)) 
+                ? { ...p, photo: data.photo_path } 
+                : p
             );
           } else {
-            // Add new player, include teamLogo property
-            return [...prev, { ...data.player, photo: data.photo_path, teamLogo }];
+            // Add new player
+            return [...prev, { ...data.player, photo: data.photo_path }];
           }
         });
         setTeamPlayers(prev => {
@@ -546,7 +770,10 @@ function PlayersStatistic() {
           return {
             ...prev,
             players: prev.players.map(p =>
-              p.name === pendingPhoto.playerName ? { ...p, photo: data.photo_path } : p
+              (p.name === pendingPhoto.playerName && 
+               (pendingPhoto.playerRole === null ? p.role === null : p.role === pendingPhoto.playerRole)) 
+                ? { ...p, photo: data.photo_path } 
+                : p
             )
           };
         });
@@ -573,8 +800,8 @@ function PlayersStatistic() {
         ...prev,
         [field]: prev[field].map((item, i) => i === index ? value : item)
       };
-      const currentPlayerName = modalInfo?.player?.name || '';
-      localStorage.setItem(`heroEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      const playerIdentifier = modalInfo?.player?.identifier || getPlayerIdentifier(modalInfo?.player?.name || '', modalInfo?.player?.role || '');
+      localStorage.setItem(`heroEvaluation_${playerIdentifier}`, JSON.stringify(updated));
       return updated;
     });
   }
@@ -585,8 +812,8 @@ function PlayersStatistic() {
         ...prev,
         [field]: value
       };
-      const currentPlayerName = modalInfo?.player?.name || '';
-      localStorage.setItem(`heroEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      const playerIdentifier = modalInfo?.player?.identifier || getPlayerIdentifier(modalInfo?.player?.name || '', modalInfo?.player?.role || '');
+      localStorage.setItem(`heroEvaluation_${playerIdentifier}`, JSON.stringify(updated));
       return updated;
     });
   }
@@ -598,8 +825,8 @@ function PlayersStatistic() {
         ...prev,
         [field]: value
       };
-      const currentPlayerName = modalInfo?.player?.name || '';
-      localStorage.setItem(`playerEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      const playerIdentifier = modalInfo?.player?.identifier || getPlayerIdentifier(modalInfo?.player?.name || '', modalInfo?.player?.role || '');
+      localStorage.setItem(`playerEvaluation_${playerIdentifier}`, JSON.stringify(updated));
       return updated;
     });
   }
@@ -613,8 +840,8 @@ function PlayersStatistic() {
           [quality]: prev.qualities[quality] === rating ? null : rating
         }
       };
-      const currentPlayerName = modalInfo?.player?.name || '';
-      localStorage.setItem(`playerEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      const playerIdentifier = modalInfo?.player?.identifier || getPlayerIdentifier(modalInfo?.player?.name || '', modalInfo?.player?.role || '');
+      localStorage.setItem(`playerEvaluation_${playerIdentifier}`, JSON.stringify(updated));
       return updated;
     });
   }
@@ -625,8 +852,8 @@ function PlayersStatistic() {
         ...prev,
         comments: prev.comments.map((comment, i) => i === index ? value : comment)
       };
-      const currentPlayerName = modalInfo?.player?.name || '';
-      localStorage.setItem(`playerEvaluation_${currentPlayerName}`, JSON.stringify(updated));
+      const playerIdentifier = modalInfo?.player?.identifier || getPlayerIdentifier(modalInfo?.player?.name || '', modalInfo?.player?.role || '');
+      localStorage.setItem(`playerEvaluation_${playerIdentifier}`, JSON.stringify(updated));
       return updated;
     });
   }
@@ -685,48 +912,83 @@ function PlayersStatistic() {
 
       {/* Main Content */}
       <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center flex-1" style={{ marginTop: -130 }}>
-        <div className="text-2xl font-bold text-blue-300 mb-4">
-          Team: {getCurrentTeamName()}
+        {/* Modern Gaming Team Display Card */}
+        <div className="relative group mb-8">
+          <div 
+            className="flex items-center bg-black hover:bg-gray-900 rounded-xl px-6 py-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20"
+            style={{ borderRadius: '12px' }}
+          >
+            <div className="flex items-center space-x-4">
+              {/* Modern Gaming Team Icon */}
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                <FaUsers className="w-6 h-6 text-white" />
+              </div>
+              
+              {/* Team Info */}
+              <div className="flex flex-col">
+                <span className="text-gray-300 text-sm font-medium tracking-wide">CURRENT TEAM</span>
+                <span className="text-blue-200 font-bold text-2xl tracking-wide">{getCurrentTeamName()}</span>
+              </div>
+              
+              {/* Modern Gaming Stats Icon */}
+              <div className="ml-4 text-blue-300 group-hover:text-blue-200 transition-colors duration-200">
+                <FaChartLine className="w-6 h-6" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Hover Effect Border */}
+          <div className="absolute inset-0 rounded-xl border-2 border-transparent group-hover:border-blue-400/50 transition-all duration-300 pointer-events-none" style={{ borderRadius: '12px' }}></div>
         </div>
         <div className="w-full flex flex-col items-center mt-12 space-y-4">
           <div className="flex flex-row justify-center gap-x-8 w-full">
             {(() => {
               const playerName = getPlayerNameForLane('exp', 0);
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
+              const playerRole = getRoleByLaneKey('exp');
+              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
+              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
               return (
-                <PlayerCard lane={LANES[0]} player={playerObj} hero={getHeroForLaneByLaneKey('exp', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[0], player: playerObj, hero: getHeroForLaneByLaneKey('exp', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
+                <PlayerCard lane={LANES[0]} player={playerObj} hero={getHeroForLaneByLaneKey('exp', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[0], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('exp', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
               );
             })()}
             {(() => {
               const playerName = getPlayerNameForLane('mid', 1);
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
+              const playerRole = getRoleByLaneKey('mid');
+              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
+              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
               return (
-                <PlayerCard lane={LANES[1]} player={playerObj} hero={getHeroForLaneByLaneKey('mid', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[1], player: playerObj, hero: getHeroForLaneByLaneKey('mid', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
+                <PlayerCard lane={LANES[1]} player={playerObj} hero={getHeroForLaneByLaneKey('mid', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[1], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('mid', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
               );
             })()}
           </div>
           <div className="flex flex-row justify-center w-full">
             {(() => {
               const playerName = getPlayerNameForLane('jungler', 2);
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
+              const playerRole = getRoleByLaneKey('jungler');
+              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
+              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
               return (
-                <PlayerCard lane={LANES[2]} player={playerObj} hero={getHeroForLaneByLaneKey('jungler', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[2], player: playerObj, hero: getHeroForLaneByLaneKey('jungler', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
+                <PlayerCard lane={LANES[2]} player={playerObj} hero={getHeroForLaneByLaneKey('jungler', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[2], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('jungler', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
               );
             })()}
           </div>
           <div className="flex flex-row justify-center gap-x-8 w-full">
             {(() => {
               const playerName = getPlayerNameForLane('gold', 3);
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
+              const playerRole = getRoleByLaneKey('gold');
+              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
+              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
               return (
-                <PlayerCard lane={LANES[3]} player={playerObj} hero={getHeroForLaneByLaneKey('gold', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[3], player: playerObj, hero: getHeroForLaneByLaneKey('gold', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
+                <PlayerCard lane={LANES[3]} player={playerObj} hero={getHeroForLaneByLaneKey('gold', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[3], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('gold', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
               );
             })()}
             {(() => {
               const playerName = getPlayerNameForLane('roam', 4);
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName };
+              const playerRole = getRoleByLaneKey('roam');
+              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
+              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
               return (
-                <PlayerCard lane={LANES[4]} player={playerObj} hero={getHeroForLaneByLaneKey('roam', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[4], player: playerObj, hero: getHeroForLaneByLaneKey('roam', lanePlayers) })} getPlayerPhoto={getPlayerPhoto} />
+                <PlayerCard lane={LANES[4]} player={playerObj} hero={getHeroForLaneByLaneKey('roam', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[4], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('roam', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
               );
             })()}
           </div>
@@ -752,10 +1014,10 @@ function PlayersStatistic() {
                 accept="image/*"
                 ref={fileInputRef}
                 style={{ display: 'none' }}
-                onChange={e => handleFileSelect(e, modalInfo.player.name)}
+                onChange={e => handleFileSelect(e, modalInfo.player.name, modalInfo.player.role)}
               />
               <img
-                src={getPlayerPhoto(modalInfo.player.name)}
+                src={getPlayerPhoto(modalInfo.player.name, modalInfo.player.role)}
                 alt="Player"
                 className="w-16 h-16 object-cover mr-4 rounded-full cursor-pointer"
                 onClick={() => fileInputRef.current && fileInputRef.current.click()}
@@ -763,29 +1025,27 @@ function PlayersStatistic() {
                 style={{ opacity: uploadingPlayer === modalInfo.player.name ? 0.5 : 1, objectPosition: 'center' }}
               />
               <div className="text-center">
-                <div className="text-white text-xl font-bold">{modalInfo.player.name}</div>
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <img src={modalInfo.lane.icon} alt={modalInfo.lane.label} className="w-6 h-6 object-contain" />
-                  <span className="text-yellow-300 text-sm font-bold">{modalInfo.lane.label}</span>
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <div className="text-white text-xl font-bold">{modalInfo.player.name}</div>
+                  <img src={modalInfo.lane.icon} alt={modalInfo.lane.label} className="w-12 h-12 object-contain" />
                 </div>
                 {uploadingPlayer === modalInfo.player.name && <div className="text-blue-300 text-xs mt-1">Uploading...</div>}
               </div>
             </div>
             
-            {/* Loading indicator for modal */}
-            {isLoadingStats && (
-              <div className="w-full text-center py-4 mb-4">
-                <div className="text-blue-300 flex items-center justify-center gap-2">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-300"></div>
-                  <span className="text-lg font-semibold">Loading player statistics...</span>
-                </div>
-              </div>
-            )}
+
             
             {/* Hero stats table */}
             <div className="w-full">
               <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE (Scrim)</div>
-              {heroStats.length > 0 ? (
+              {isLoadingStats ? (
+                <div className="text-center py-4">
+                  <div className="text-blue-300 flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-300"></div>
+                    <span className="text-sm">Loading stats...</span>
+                  </div>
+                </div>
+              ) : heroStats.length > 0 ? (
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr>
@@ -814,9 +1074,16 @@ function PlayersStatistic() {
             </div>
             
             {/* H2H stats table */}
-            {heroH2HStats.length > 0 && (
-              <div className="mt-8 w-full">
-                <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE vs ENEMY (H2H)</div>
+            <div className="mt-8 w-full">
+              <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE vs ENEMY (H2H)</div>
+              {isLoadingStats ? (
+                <div className="text-center py-4">
+                  <div className="text-blue-300 flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-300"></div>
+                    <span className="text-sm">Loading stats...</span>
+                  </div>
+                </div>
+              ) : heroH2HStats.length > 0 ? (
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr>
@@ -841,8 +1108,12 @@ function PlayersStatistic() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )}
+              ) : (
+                <div className="text-gray-400">No H2H stats available.</div>
+              )}
+            </div>
+            
+
             
             <div className="text-gray-300 text-left mt-2">
               {heroStats.length === 0 && (
