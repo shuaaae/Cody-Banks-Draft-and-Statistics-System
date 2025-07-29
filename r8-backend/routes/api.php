@@ -7,6 +7,18 @@ use App\Http\Controllers\MatchTeamController;
 use App\Http\Controllers\Api\HeroController;
 use App\Http\Controllers\Api\PlayerController;
 use App\Http\Controllers\TeamController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AdminController;
+
+// Test route
+Route::get('/test', function () {
+    return response()->json(['message' => 'API is working']);
+});
+
+// Authentication routes (no middleware - accessible to everyone)
+Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/logout', [AuthController::class, 'logout']);
+Route::get('/auth/me', [AuthController::class, 'me']);
 
 Route::middleware('api')->group(function () {
     Route::apiResource('matches', GameMatchController::class);
@@ -31,4 +43,16 @@ Route::post('/teams/set-active', [TeamController::class, 'setActive']);
 Route::get('/teams/active', [TeamController::class, 'getActive']);
 Route::get('/teams/debug', [TeamController::class, 'debug']);
 Route::post('/teams/upload-logo', [TeamController::class, 'uploadLogo']);
+
+// Admin routes (protected by admin middleware)
+Route::middleware(['api', 'admin'])->group(function () {
+    Route::get('/admin/users', [AdminController::class, 'index']);
+    Route::post('/admin/users', [AdminController::class, 'store']);
+    Route::delete('/admin/users/{user}', [AdminController::class, 'destroy']);
+});
+
+// Protected routes for authenticated users (non-admin)
+Route::middleware(['api'])->group(function () {
+    // Add any user-specific protected routes here
+});
 });

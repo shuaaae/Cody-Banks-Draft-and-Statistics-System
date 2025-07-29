@@ -3,8 +3,10 @@ import mobaImg from '../assets/moba1.png';
 import bgImg from '../assets/bg.jpg';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
-import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar } from 'react-icons/fa';
+import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar, FaSignOutAlt } from 'react-icons/fa';
 import html2canvas from 'html2canvas';
+import PageTitle from '../components/PageTitle';
+import useSessionTimeout from '../hooks/useSessionTimeout';
 
 export default function MockDraft() {
   const navigate = useNavigate();
@@ -29,6 +31,44 @@ export default function MockDraft() {
   const [redTeamName, setRedTeamName] = useState('');
   // Loading state for save draft
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  // User avatar state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+  // User session timeout: 30 minutes
+  useSessionTimeout(30, 'currentUser', '/');
+
+  // Check if user is logged in
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('currentUser'));
+    if (!user) {
+      navigate('/');
+      return;
+    }
+    setCurrentUser(user);
+  }, [navigate]);
+
+  // Handle click outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserDropdown && !event.target.closest('.user-dropdown')) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserDropdown]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('adminUser');
+    localStorage.removeItem('adminAuthToken');
+    navigate('/');
+  };
 
   useEffect(() => {
     fetch('/api/heroes')
@@ -280,6 +320,7 @@ export default function MockDraft() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
+      <PageTitle title="Mock Draft" />
       {/* Top Navbar */}
       <header
         className="w-full fixed top-0 left-0 z-50 flex items-center justify-between px-12"
@@ -300,7 +341,7 @@ export default function MockDraft() {
         </div>
         {/* Nav Links */}
         <nav className="flex justify-end w-full">
-          <ul className="flex gap-10 mr-0">
+          <ul className="flex gap-10 mr-8">
             {navLinks.map(link => (
               <li key={link.label}>
                 <button
@@ -317,8 +358,93 @@ export default function MockDraft() {
             ))}
           </ul>
         </nav>
-        {/* Right side empty for now */}
-        <div style={{ width: 48 }} />
+        {/* User Avatar and Dropdown */}
+        <div className="relative user-dropdown">
+          <button
+            onClick={() => setShowUserDropdown(!showUserDropdown)}
+            className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-105 shadow-lg"
+          >
+            {/* Square Avatar with Black and White Icon */}
+            <svg className="w-6 h-6" fill="white" stroke="black" strokeWidth="1" viewBox="0 0 24 24">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </button>
+
+          {/* Dropdown Menu */}
+          {showUserDropdown && (
+            <div className="absolute right-0 top-full mt-2 w-48 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50">
+              {/* User Info Section */}
+              <div className="px-4 py-3 border-b border-gray-600">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-0">
+                    <svg className="w-6 h-6" fill="white" stroke="black" strokeWidth="1" viewBox="0 0 24 24">
+                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-white font-medium text-sm">
+                      {currentUser?.name || 'User'}
+                    </div>
+                    <div className="text-gray-400 text-xs">
+                      {currentUser?.email || 'user@example.com'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu Items */}
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    // Add profile or settings functionality here
+                  }}
+                  className="w-full px-4 py-2 text-left text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Profile
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    // Add settings functionality here
+                  }}
+                  className="w-full px-4 py-2 text-left text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c.94-1.543-.826-3.31-2.37-2.37a1.724 1.724 0 00-2.572-1.065c-.426-1.756-2.924-1.756-3.35 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Settings
+                  </div>
+                </button>
+
+                {/* Divider */}
+                <div className="border-t border-gray-600 my-1"></div>
+
+                {/* Logout Button */}
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    handleLogout();
+                  }}
+                  className="w-full px-4 py-2 text-left text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <FaSignOutAlt className="w-4 h-4" />
+                    Logout
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Main Draft Board */}

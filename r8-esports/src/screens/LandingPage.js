@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import mobaImg from '../assets/moba1.png';
 import mainBg from '../assets/mainbg.jpg';
+import PageTitle from '../components/PageTitle';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -11,11 +12,17 @@ export default function LandingPage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [teams, setTeams] = useState([]);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [teamLogo, setTeamLogo] = useState(null);
   const [teamLogoFile, setTeamLogoFile] = useState(null);
   const [teamName, setTeamName] = useState("");
   const [activeTeam, setActiveTeam] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const laneRoles = [
     { key: 'exp', label: 'Exp Lane' },
     { key: 'mid', label: 'Mid Lane' },
@@ -57,6 +64,141 @@ export default function LandingPage() {
     setPlayers(players.filter((_, i) => i !== idx));
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('adminUser');
+    localStorage.removeItem('adminAuthToken');
+    setIsLoggedIn(false);
+    setActiveTeam(null);
+    localStorage.removeItem('latestTeam');
+  };
+
+  const handleCloseLoginModal = () => {
+    setShowLoginModal(false);
+    setLoginEmail('');
+    setLoginPassword('');
+    setLoginError('');
+    setShowPassword(false);
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError('');
+
+    try {
+      console.log('Attempting login with:', { email: loginEmail });
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Login-Type': 'user'
+        },
+        body: JSON.stringify({ 
+          email: loginEmail, 
+          password: loginPassword 
+        })
+      });
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
+      if (!response.ok) {
+        console.log('Response not ok, status:', response.status);
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
+        // Show user-friendly error message
+        if (response.status === 401) {
+          throw new Error('Invalid Credentials');
+        } else {
+          throw new Error('Login failed. Please try again.');
+        }
+      }
+
+      const data = await response.json();
+      console.log('Logged in user:', data.user);
+      
+      // Store user info in localStorage
+      localStorage.setItem('currentUser', JSON.stringify(data.user));
+      
+      // Clear any existing admin session to prevent conflicts
+      localStorage.removeItem('adminUser');
+      localStorage.removeItem('adminAuthToken');
+      
+      // Update login state
+      setIsLoggedIn(true);
+      
+      // Close modal and clear form
+      setShowLoginModal(false);
+      setLoginEmail('');
+      setLoginPassword('');
+      
+      console.log('Login successful, staying on landing page');
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      setLoginError(error.message);
+      
+      // Clear error message after 3 seconds
+      setTimeout(() => {
+        setLoginError('');
+      }, 3000);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Check if user is logged in
+  useEffect(() => {
+    const currentUser = localStorage.getItem('currentUser');
+    if (currentUser) {
+      try {
+        const userData = JSON.parse(currentUser);
+        setIsLoggedIn(true);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        localStorage.removeItem('currentUser');
+        setIsLoggedIn(false);
+      }
+    } else {
+      setIsLoggedIn(false);
+    }
+  }, []);
+
+  // Update login state when localStorage changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const currentUser = localStorage.getItem('currentUser');
+      setIsLoggedIn(!!currentUser);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Test API connection (only log errors)
+  useEffect(() => {
+    const testApiConnection = async () => {
+      try {
+        const response = await fetch('/api/test');
+        if (!response.ok) {
+          console.error('API connection failed:', response.status);
+        }
+      } catch (error) {
+        console.error('API connection error:', error);
+      }
+    };
+
+    testApiConnection();
+  }, []);
+
+
+
   // Load active team and fetch teams from API
   useEffect(() => {
     const loadActiveTeam = async () => {
@@ -65,14 +207,18 @@ export default function LandingPage() {
         if (response.ok) {
           const activeTeamData = await response.json();
           setActiveTeam(activeTeamData);
+        } else if (response.status === 404) {
+          // 404 is expected when no active team exists
+          console.log('No active team found (expected)');
+          localStorage.removeItem('latestTeam');
+          setActiveTeam(null);
         } else {
-          console.log('No active team in backend, clearing localStorage');
+          console.log('Unexpected error loading active team:', response.status);
           localStorage.removeItem('latestTeam');
           setActiveTeam(null);
         }
       } catch (error) {
-        console.error('Error loading active team:', error);
-        console.log('API error, clearing localStorage');
+        console.error('Network error loading active team:', error);
         localStorage.removeItem('latestTeam');
         setActiveTeam(null);
       }
@@ -111,6 +257,11 @@ export default function LandingPage() {
   };
 
   const handleSwitchOrAddTeam = () => {
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+    
     if (teams.length === 0) {
       setShowAddTeamModal(true);
     } else {
@@ -251,14 +402,8 @@ export default function LandingPage() {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      width: '100vw',
-      background: `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${mainBg}) center/cover`,
-      display: 'flex',
-      flexDirection: 'column',
-      fontFamily: 'Inter, sans-serif',
-    }}>
+    <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${mainBg}) center/cover, #181A20` }}>
+      <PageTitle title="" />
       {/* Top Navbar */}
       <header
         style={{
@@ -316,24 +461,56 @@ export default function LandingPage() {
           >
             About Us
           </button>
-          <button
-            style={{
-              color: '#fff',
-              fontSize: 16,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: 1,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'color 0.3s ease',
-            }}
-            onMouseEnter={(e) => e.target.style.color = '#FFD600'}
-            onMouseLeave={(e) => e.target.style.color = '#fff'}
-            onClick={() => setShowLoginModal(true)}
-          >
-            Login
-          </button>
+          {isLoggedIn ? (
+            <>
+              <span style={{
+                color: '#10b981',
+                fontSize: 14,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: 1,
+              }}>
+                Welcome, {JSON.parse(localStorage.getItem('currentUser'))?.name || 'User'}
+              </span>
+              <button
+                style={{
+                  color: '#ef4444',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'color 0.3s ease',
+                }}
+                onMouseEnter={(e) => e.target.style.color = '#dc2626'}
+                onMouseLeave={(e) => e.target.style.color = '#ef4444'}
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <button
+              style={{
+                color: '#fff',
+                fontSize: 16,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: 1,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'color 0.3s ease',
+              }}
+              onMouseEnter={(e) => e.target.style.color = '#FFD600'}
+              onMouseLeave={(e) => e.target.style.color = '#fff'}
+              onClick={() => setShowLoginModal(true)}
+            >
+              Login
+            </button>
+          )}
         </nav>
       </header>
 
@@ -410,7 +587,7 @@ export default function LandingPage() {
               onMouseEnter={() => setHoveredBtn('switchteam')}
               onMouseLeave={() => setHoveredBtn(null)}
             >
-              Switch Team
+              {isLoggedIn ? 'Switch Team' : 'Login to Switch Team'}
             </button>
 
           <button
@@ -430,11 +607,17 @@ export default function LandingPage() {
                 textShadow: '0 2px 8px rgba(0,0,0,0.5)',
                 minWidth: 200,
             }}
-              onClick={() => setShowAddTeamModal(true)}
+              onClick={() => {
+                if (!isLoggedIn) {
+                  setShowLoginModal(true);
+                } else {
+                  setShowAddTeamModal(true);
+                }
+              }}
               onMouseEnter={() => setHoveredBtn('addteam')}
             onMouseLeave={() => setHoveredBtn(null)}
           >
-              Add New Team
+              {isLoggedIn ? 'Add New Team' : 'Login to Add Team'}
           </button>
           </div>
         </div>
@@ -717,7 +900,7 @@ export default function LandingPage() {
       {showLoginModal && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 backdrop-blur-sm p-4"
-          onClick={() => setShowLoginModal(false)}
+          onClick={handleCloseLoginModal}
         >
           <div 
             className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-3xl border border-gray-600 shadow-2xl w-[95vw] max-w-md flex flex-col overflow-hidden"
@@ -729,7 +912,7 @@ export default function LandingPage() {
             {/* Close Button */}
             <button 
               className="absolute top-6 right-6 text-gray-400 hover:text-white text-2xl font-bold transition-colors duration-200 z-50 cursor-pointer hover:scale-110 bg-gray-800/50 rounded-full w-8 h-8 flex items-center justify-center" 
-              onClick={() => setShowLoginModal(false)}
+              onClick={handleCloseLoginModal}
               type="button"
             >
               ✕
@@ -750,7 +933,7 @@ export default function LandingPage() {
             
             {/* Login Form */}
             <div className="relative z-10 px-8 pb-8">
-              <form className="space-y-6">
+              <form className="space-y-6" onSubmit={handleLogin}>
                 {/* Email Input */}
                 <div>
                   <label className="block text-gray-300 text-sm font-medium mb-2">
@@ -760,6 +943,8 @@ export default function LandingPage() {
                     type="email"
                     className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-600 rounded-2xl py-4 px-6 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200"
                     placeholder="Enter your email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
                     required
                   />
                 </div>
@@ -769,13 +954,40 @@ export default function LandingPage() {
                   <label className="block text-gray-300 text-sm font-medium mb-2">
                     Password
                   </label>
-                  <input
-                    type="password"
-                    className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-600 rounded-2xl py-4 px-6 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200"
-                    placeholder="Enter your password"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-600 rounded-2xl py-4 px-6 pr-12 text-white placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200"
+                      placeholder="Enter your password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={togglePasswordVisibility}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors duration-200"
+                    >
+                      {showPassword ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
+                
+                {/* Error Display */}
+                {loginError && (
+                  <div className="bg-red-900/20 border border-red-600 rounded-lg p-3">
+                    <div className="text-red-400 text-sm">{loginError}</div>
+                  </div>
+                )}
                 
                 {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between">
@@ -797,27 +1009,15 @@ export default function LandingPage() {
                 {/* Login Button */}
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] transform"
+                  disabled={isLoggingIn}
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] transform disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Sign In
+                  {isLoggingIn ? 'Signing In...' : 'Sign In'}
                 </button>
                 
 
                 
-                {/* Sign Up Link */}
-                <div className="text-center">
-                  <span className="text-gray-400 text-sm">Don't have an account? </span>
-                  <button
-                    type="button"
-                    className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors duration-200"
-                    onClick={() => {
-                      setShowLoginModal(false);
-                      setShowSignupModal(true);
-                    }}
-                  >
-                    Sign up
-                  </button>
-                </div>
+
               </form>
             </div>
           </div>
