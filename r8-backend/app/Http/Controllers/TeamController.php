@@ -145,4 +145,25 @@ class TeamController extends Controller
         \Log::error('No logo file provided in upload request');
         return response()->json(['error' => 'No logo file provided'], 400);
     }
+
+    /**
+     * Delete a team
+     */
+    public function destroy($id): JsonResponse
+    {
+        $team = Team::findOrFail($id);
+        
+        // Check if this is the active team and clear it if so
+        $activeTeamId = session('active_team_id');
+        if ($activeTeamId == $id) {
+            session()->forget('active_team_id');
+        }
+        
+        // Delete the team
+        $team->delete();
+        
+        return response()->json([
+            'message' => 'Team deleted successfully'
+        ]);
+    }
 }

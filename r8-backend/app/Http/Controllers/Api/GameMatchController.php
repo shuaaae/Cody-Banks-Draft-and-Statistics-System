@@ -34,12 +34,12 @@ class GameMatchController extends Controller
         // Build the query
         $query = \App\Models\GameMatch::with('teams')->whereNull('deleted_at');
         
-        // Filter by team_id if provided
-        if ($teamId && $teamId !== 'null') {
+        // Filter by team_id if provided and not null/empty
+        if ($teamId && $teamId !== 'null' && $teamId !== '') {
             $query->where('team_id', $teamId);
             \Log::info('Filtering matches by team_id', ['team_id' => $teamId]);
         } else {
-            \Log::info('No team_id provided, returning all matches');
+            \Log::info('No team_id provided or team_id is null/empty, returning all matches');
         }
         
         // Get matches ordered by date
@@ -48,7 +48,8 @@ class GameMatchController extends Controller
         \Log::info('Matches returned', [
             'count' => $matches->count(),
             'team_ids' => $matches->pluck('team_id')->unique()->toArray(),
-            'filtered_by_team_id' => $teamId
+            'filtered_by_team_id' => $teamId,
+            'first_match' => $matches->first() ? $matches->first()->toArray() : null
         ]);
         
         return response()->json($matches);

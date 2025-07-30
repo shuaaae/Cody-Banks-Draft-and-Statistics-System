@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const useSessionTimeout = (timeoutMinutes, sessionKey, redirectPath) => {
@@ -10,7 +10,7 @@ const useSessionTimeout = (timeoutMinutes, sessionKey, redirectPath) => {
     lastActivityRef.current = Date.now();
   };
 
-  const checkSession = () => {
+  const checkSession = useCallback(() => {
     const now = Date.now();
     const timeSinceLastActivity = now - lastActivityRef.current;
     const timeoutMs = timeoutMinutes * 60 * 1000; // Convert minutes to milliseconds
@@ -30,7 +30,7 @@ const useSessionTimeout = (timeoutMinutes, sessionKey, redirectPath) => {
 
     // Schedule next check in 1 minute
     timeoutRef.current = setTimeout(checkSession, 60000);
-  };
+  }, [timeoutMinutes, sessionKey, redirectPath, navigate]);
 
   useEffect(() => {
     // Set up activity listeners
@@ -58,7 +58,7 @@ const useSessionTimeout = (timeoutMinutes, sessionKey, redirectPath) => {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [timeoutMinutes, sessionKey, redirectPath, navigate]);
+  }, [checkSession]);
 
   return { resetTimer };
 };

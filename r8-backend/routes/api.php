@@ -43,6 +43,7 @@ Route::post('/teams/set-active', [TeamController::class, 'setActive']);
 Route::get('/teams/active', [TeamController::class, 'getActive']);
 Route::get('/teams/debug', [TeamController::class, 'debug']);
 Route::post('/teams/upload-logo', [TeamController::class, 'uploadLogo']);
+Route::delete('/teams/{id}', [TeamController::class, 'destroy']);
 
 // Admin routes (protected by admin middleware)
 Route::middleware(['api', 'admin'])->group(function () {

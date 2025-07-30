@@ -63,6 +63,7 @@ export default function HomePage() {
   const [pickTarget, setPickTarget] = useState(null); // { team: 'blue'|'red', pickNum: 1|2, lane: null|string }
   const [heroPickerMode, setHeroPickerMode] = useState(null); // 'ban' | 'pick' | null
   const [heroList, setHeroList] = useState([]);
+  const [showProfileModal, setShowProfileModal] = useState(false); // Add profile modal state
 
   const [currentPickSession, setCurrentPickSession] = useState(null); // { team, pickNum, remainingPicks }
   const [pickerStep, setPickerStep] = useState('lane'); // 'lane' or 'hero' - tracks current step in pick flow
@@ -73,8 +74,6 @@ export default function HomePage() {
   const [lordTakenRed, setLordTakenRed] = useState('');
   const [notes, setNotes] = useState('');
   const [playstyle, setPlaystyle] = useState('');
-  const [selectedTeam, setSelectedTeam] = useState('All Teams');
-  const [allTeams, setAllTeams] = useState([]);
   const [deleteConfirmMatch, setDeleteConfirmMatch] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const [lastFetchTime, setLastFetchTime] = useState(0);
@@ -83,8 +82,9 @@ export default function HomePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isFetching, setIsFetching] = useState(false); // Add flag to prevent multiple requests
   const [itemsPerPage] = useState(20); // Show 20 matches per page
-  const [showClearDataModal, setShowClearDataModal] = useState(false);
-  const [pendingTeamChange, setPendingTeamChange] = useState(null);
+  const loadingTimeoutRef = useRef(null); // Add timeout ref for 3-second loading limit
+  const isRequestInProgressRef = useRef(false); // Add ref to track request state
+
   const [heroPickerSelected, setHeroPickerSelected] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -139,166 +139,15 @@ export default function HomePage() {
     setLordTakenRed('');
     setNotes('');
     setPlaystyle('');
-    setCurrentPickSession(null);
-    setHeroPickerMode(null);
-    setPickerStep('lane');
-    setModalState('none');
-    setDeleteConfirmMatch(null);
-    setHoveredMatchId(null);
-    setErrorMessage('');
-    setIsLoading(false);
-    setIsFetching(false);
-    
-    // Clear localStorage data that could cause data leakage
-    localStorage.removeItem('latestMatch');
-    
-    // Clear any cached data from previous team
-    sessionStorage.clear();
   }, []);
 
 
 
-  // Function to handle team selection
-  const handleTeamChange = useCallback((newTeam) => {
-    const previousTeam = selectedTeam;
-    
-    console.log(`Team change requested: "${previousTeam}" -> "${newTeam}"`);
-    
-    // If switching to a different team (not "All Teams"), show confirmation
-    if (newTeam !== 'All Teams' && newTeam !== previousTeam && matches.length > 0) {
-      setPendingTeamChange(newTeam);
-      setShowClearDataModal(true);
-    } else {
-      setSelectedTeam(newTeam);
-      
-      // If switching to a different team (not "All Teams"), clear all data
-      if (newTeam !== 'All Teams' && newTeam !== previousTeam) {
-        console.log(`Switching from "${previousTeam}" to "${newTeam}" - clearing data`);
-        clearAllData();
-        
-        // Set loading state to show fresh data is being loaded
-        setIsLoading(true);
-      }
-    }
-  }, [selectedTeam, clearAllData, matches.length]);
 
-  // Function to confirm team change and clear data
-  const confirmTeamChange = useCallback(() => {
-    if (pendingTeamChange) {
-      setSelectedTeam(pendingTeamChange);
-      clearAllData();
-      setShowClearDataModal(false);
-      setPendingTeamChange(null);
-    }
-  }, [pendingTeamChange, clearAllData]);
-
-  // Function to cancel team change
-  const cancelTeamChange = useCallback(() => {
-    setShowClearDataModal(false);
-    setPendingTeamChange(null);
-  }, []);
-
-  // Initialize selected team from localStorage or navigation state
-  useEffect(() => {
-    // First check navigation state (for direct navigation from landing page)
-    if (location.state?.selectedTeam) {
-      console.log('Setting team from navigation state:', location.state.selectedTeam);
-      setSelectedTeam(location.state.selectedTeam);
-      
-      // Store the team data in localStorage
-      if (location.state.activeTeamData) {
-        localStorage.setItem('latestTeam', JSON.stringify(location.state.activeTeamData));
-      }
-      
-      // If this is a new team, clear all data immediately
-      if (location.state.isNewTeam) {
-        console.log('New team detected - clearing all data immediately');
-        setMatches([]);
-        setCachedMatches([]);
-        setLastFetchTime(0);
-        sessionStorage.clear();
-        localStorage.removeItem('latestMatch');
-        setIsLoading(true); // Show loading state for new team
-      }
-      
-      // Clear the navigation state to prevent re-triggering
-      window.history.replaceState({}, document.title);
-    } else {
-      // Check localStorage for persistent team selection (for page refresh)
-      const latestTeam = localStorage.getItem('latestTeam');
-      if (latestTeam) {
-        try {
-          const teamData = JSON.parse(latestTeam);
-          console.log('Setting team from localStorage:', teamData.teamName);
-          setSelectedTeam(teamData.teamName);
-          // Clear cache to ensure fresh data for the restored team
-          setCachedMatches([]);
-          setLastFetchTime(0);
-
-        } catch (error) {
-          console.error('Error parsing team data from localStorage:', error);
-          setSelectedTeam('All Teams');
-        }
-      } else {
-        console.log('No team data found, defaulting to All Teams');
-        setSelectedTeam('All Teams');
-      }
-    }
-  }, [location.state]);
-
-  // Effect to trigger fresh fetch when team changes
-  useEffect(() => {
-    console.log('Team change effect triggered for:', selectedTeam);
-    
-    if (selectedTeam && selectedTeam !== 'All Teams') {
-      // Force fresh fetch when team changes
-      console.log('Clearing cache and forcing fresh fetch for team:', selectedTeam);
-      setCachedMatches([]);
-      setLastFetchTime(0);
-      setMatches([]); // Clear current matches immediately
-      setIsLoading(true); // Show loading state
-      
-      // Clear any cached data from previous team
-      sessionStorage.clear();
-      localStorage.removeItem('latestMatch');
-      
-    } else if (selectedTeam === 'All Teams') {
-      // If switching to "All Teams", clear the active team session
-      console.log('Switching to All Teams - clearing session');
-      fetch('/api/teams/set-active', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ team_id: null }),
-      }).then(() => {
-        // Trigger a fresh fetch by clearing cache
-        setCachedMatches([]);
-        setLastFetchTime(0);
-        setMatches([]); // Clear current matches
-      }).catch(() => {
-        // If setting active team fails, still trigger fresh fetch
-        setCachedMatches([]);
-        setLastFetchTime(0);
-        setMatches([]); // Clear current matches
-      });
-    }
-  }, [selectedTeam]);
 
   // Separate function to process matches data (defined first)
   const processMatchesData = useCallback((data) => {
-    console.log('Processing matches data:', data);
-    
-    // Collect all unique team names from the data
-    const teamsSet = new Set();
-    data.forEach(match => {
-      if (match.teams) {
-        match.teams.forEach(team => {
-          if (team.team) teamsSet.add(team.team);
-        });
-      }
-    });
-    setAllTeams(['All Teams', ...Array.from(teamsSet)]);
+    console.log('Processing matches data:', data.length, 'matches');
     
     // Sort latest to oldest by match_date and id
     const sorted = [...data].sort((a, b) => {
@@ -306,7 +155,7 @@ export default function HomePage() {
       return new Date(b.match_date) - new Date(a.match_date);
     });
     
-    console.log('Setting matches to:', sorted);
+    console.log('Setting matches to:', sorted.length, 'matches');
     setMatches(sorted || []);
     setCurrentPage(1); // Reset to first page when data changes
   }, []);
@@ -327,45 +176,43 @@ export default function HomePage() {
       return;
     }
 
-    // Prevent multiple simultaneous requests
-    if (isLoading || isFetching) {
+    // Prevent multiple simultaneous requests using ref
+    if (isRequestInProgressRef.current) {
       console.log('Request already in progress, skipping...');
       return;
     }
 
+    // Set request in progress flag
+    isRequestInProgressRef.current = true;
     setIsLoading(true);
     setIsFetching(true);
-    console.log('Fetching fresh matches data...', { forceRefresh, cacheValid, cachedMatchesLength: cachedMatches.length });
+    console.log('Fetching fresh matches data...');
+
+    // Set 3-second timeout to force loading to stop
+    loadingTimeoutRef.current = setTimeout(() => {
+      console.log('3-second timeout reached, forcing loading to stop');
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        setIsFetching(false);
+        isRequestInProgressRef.current = false;
+      }
+    }, 3000);
 
     try {
-      console.log('Starting health check...');
-      console.log('Health check URL:', '/api/heroes');
-      // Quick check if backend is reachable
-      const healthCheck = await fetch('/api/heroes', { 
-        method: 'HEAD',
-        signal: AbortSignal.timeout(5000) // 5 second timeout
-      });
-      console.log('Health check response:', healthCheck.status, healthCheck.ok);
-      
-      if (!healthCheck.ok) {
-        throw new Error(`Backend health check failed: ${healthCheck.status}`);
-      }
-
-      console.log('Health check passed, fetching matches...');
-      
-      // Get team ID from localStorage
+      // Get current team from localStorage
       const latestTeam = localStorage.getItem('latestTeam');
       const teamData = latestTeam ? JSON.parse(latestTeam) : null;
       const teamId = teamData?.id;
       
-      console.log('Team data:', { teamData, teamId });
-      console.log('Matches URL:', `/api/matches${teamId ? `?team_id=${teamId}` : ''}`);
+      // Build URL with team filtering
+      const url = teamId ? `/api/matches?team_id=${teamId}` : '/api/matches';
+      console.log('Fetching matches from:', url);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
-      // Add performance headers and team_id parameter
-      const response = await fetch(`/api/matches${teamId ? `?team_id=${teamId}` : ''}`, {
+      // Add performance headers - fetch matches with team filtering
+      const response = await fetch(url, {
         signal: controller.signal,
         headers: {
           'Cache-Control': 'no-cache',
@@ -384,7 +231,7 @@ export default function HomePage() {
 
       const data = await response.json();
       
-      console.log('API Response:', { status: response.status, dataLength: data.length, data });
+      console.log('API Response:', { status: response.status, dataLength: data.length });
       
       // Cache the data
       setCachedMatches(data);
@@ -399,7 +246,7 @@ export default function HomePage() {
       // Clear any previous error messages
       setErrorMessage('');
       
-      console.log(`Successfully loaded ${data.length} matches in ${Date.now() - now}ms`);
+      console.log(`Successfully loaded ${data.length} matches`);
       
     } catch (error) {
       console.error('Error fetching matches:', error);
@@ -422,101 +269,53 @@ export default function HomePage() {
       setLastFetchTime(0);
     } finally {
       console.log('Setting loading to false');
+      // Clear the timeout if it hasn't fired yet
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       if (isMountedRef.current) {
         setIsLoading(false);
         setIsFetching(false);
+        isRequestInProgressRef.current = false;
       }
     }
-      }, [lastFetchTime, processMatchesData]); // Remove cachedMatches to prevent infinite loop
+  }, [lastFetchTime, processMatchesData, cachedMatches]); // Remove problematic dependencies
 
-  // Effect to trigger fetch when cache is cleared (for team changes)
+  // Call fetchMatches when component mounts
   useEffect(() => {
-    if (cachedMatches.length === 0 && lastFetchTime === 0 && selectedTeam) {
-      // Only trigger if we have a selected team and cache is cleared
-      fetchMatches(true);
-    }
-  }, [cachedMatches.length, lastFetchTime, selectedTeam]);
-
-  // Initial load and heroes fetch
-  useEffect(() => {
-    console.log('Initial load effect triggered');
-    console.log('Selected team:', selectedTeam);
+    console.log('Component mounted, calling fetchMatches...');
+    fetchMatches();
     
-    // Simple approach: fetch both heroes and matches directly
-    const loadData = async () => {
+    // Cleanup function to clear timeout when component unmounts
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    };
+  }, []); // Empty dependency array to only run once on mount
+
+  // Load heroes when component mounts
+  useEffect(() => {
+    const loadHeroes = async () => {
       try {
-        console.log('Starting to load data for team:', selectedTeam);
-        
-        // Fetch heroes
-        const heroesResponse = await fetch('/api/heroes');
-        const heroesData = await heroesResponse.json();
-        console.log('Heroes loaded successfully:', heroesData.length);
-        setHeroList(heroesData);
-        
-        // Get team ID from localStorage
-        const latestTeam = localStorage.getItem('latestTeam');
-        const teamData = latestTeam ? JSON.parse(latestTeam) : null;
-        const teamId = teamData?.id;
-        
-        console.log('Initial load - Team data:', { teamData, teamId });
-        
-        // Fetch matches with team_id parameter
-        const matchesResponse = await fetch(`/api/matches${teamId ? `?team_id=${teamId}` : ''}`);
-        const matchesData = await matchesResponse.json();
-        console.log('Matches loaded successfully:', matchesData.length);
-        
-        // Process matches data directly
-        processMatchesData(matchesData);
-        setCachedMatches(matchesData);
-        setLastFetchTime(Date.now());
-        setErrorMessage('');
-        setIsLoading(false);
-        
+        console.log('Loading heroes...');
+        const response = await fetch('/api/heroes');
+        if (response.ok) {
+          const heroes = await response.json();
+          console.log('Heroes loaded:', heroes.length);
+          setHeroList(heroes);
+        } else {
+          console.error('Failed to load heroes:', response.status);
+        }
       } catch (error) {
-        console.error('Error loading data:', error);
-        setErrorMessage('Failed to load data: ' + error.message);
-        setIsLoading(false);
+        console.error('Error loading heroes:', error);
       }
     };
     
-    // Only load data if we have a selected team
-    if (selectedTeam && selectedTeam !== 'All Teams') {
-      console.log('Loading data for team:', selectedTeam);
-      // Start loading immediately for new teams
-      const timer = setTimeout(loadData, 50);
-      
-      return () => {
-        clearTimeout(timer);
-        isMountedRef.current = false;
-      };
-    } else if (selectedTeam === 'All Teams') {
-      // If "All Teams" selected, clear data and don't load
-      console.log('All Teams selected - clearing data');
-      setMatches([]);
-      setCachedMatches([]);
-      setLastFetchTime(0);
-      setIsLoading(false);
-    } else {
-      // If no team selected, just clear loading state
-      console.log('No team selected - clearing loading state');
-      setIsLoading(false);
-    }
-  }, [processMatchesData, selectedTeam]); // Add selectedTeam as dependency
-
-  // Fallback timeout to prevent infinite loading
-  useEffect(() => {
-    if (isLoading) {
-      const fallbackTimer = setTimeout(() => {
-        console.log('Fallback timeout triggered - forcing loading to false');
-        setIsLoading(false);
-        setErrorMessage('Loading took too long - please try refreshing the page');
-      }, 10000); // 10 seconds
-      
-      return () => clearTimeout(fallbackTimer);
-    }
-  }, [isLoading]);
-
-
+    loadHeroes();
+  }, []);
 
   // Function to reset all form data
   function resetFormData() {
@@ -887,7 +686,7 @@ export default function HomePage() {
                 <button
                   onClick={() => {
                     setShowUserDropdown(false);
-                    // Add profile or settings functionality here
+                    setShowProfileModal(true);
                   }}
                   className="w-full px-4 py-2 text-left text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm"
                 >
@@ -902,16 +701,15 @@ export default function HomePage() {
                 <button
                   onClick={() => {
                     setShowUserDropdown(false);
-                    // Add settings functionality here
+                    navigate('/');
                   }}
                   className="w-full px-4 py-2 text-left text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm"
                 >
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c.94-1.543-.826-3.31-2.37-2.37a1.724 1.724 0 00-2.572-1.065c-.426-1.756-2.924-1.756-3.35 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                     </svg>
-                    Settings
+                    Back to Home Page
                   </div>
                 </button>
 
@@ -949,15 +747,6 @@ export default function HomePage() {
               >
                 Export Match
               </button>
-              <select
-                className="ml-2 px-4 py-2 rounded bg-gray-800 text-blue-200 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                value={selectedTeam}
-                onChange={e => handleTeamChange(e.target.value)}
-              >
-                {allTeams.map(team => (
-                  <option key={team} value={team}>{team}</option>
-                ))}
-              </select>
               
               <h1 className="text-2xl font-bold text-blue-200 ml-4">Cody Banks Draft and Statistics System</h1>
             </div>
@@ -992,10 +781,7 @@ export default function HomePage() {
                   <div className="text-gray-400 text-6xl mb-4">📊</div>
                   <h3 className="text-xl font-semibold text-white mb-2">No Matches Added</h3>
                   <p className="text-gray-400 text-center max-w-md">
-                    {selectedTeam === 'All Teams' 
-                      ? "No matches have been added to the system yet. Click 'Export Match' to add your first match."
-                      : `No matches found for team "${selectedTeam}". Click 'Export Match' to add your first match for this team.`
-                    }
+                    No matches have been added to the system yet. Click 'Export Match' to add your first match.
                   </p>
                 </div>
               ) : (
@@ -1533,52 +1319,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Team Change Confirmation Modal */}
-      {showClearDataModal && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-90" style={{ backdropFilter: 'blur(4px)' }}>
-          <div className="modal-box w-full max-w-md bg-[#23232a] rounded-2xl shadow-2xl p-8 border-2 border-yellow-500">
-            <div className="flex items-center mb-6">
-              <div className="text-yellow-500 text-3xl mr-4">⚠️</div>
-              <div>
-                <h3 className="text-2xl font-bold text-white">Switch Team?</h3>
-                <p className="text-yellow-400 text-sm mt-1">This will clear all current data</p>
-              </div>
-            </div>
-            <div className="mb-6">
-              <div className="bg-[#181A20] rounded-lg p-4 border border-yellow-400 mb-4">
-                <div className="text-white text-sm leading-relaxed">
-                  You're switching to <strong className="text-blue-400">{pendingTeamChange}</strong>.<br/><br/>
-                  This will clear all current match data, bans, picks, and form inputs to start fresh with the new team.
-                </div>
-              </div>
-              <div className="bg-red-900/20 border border-red-600 rounded-lg p-3">
-                <div className="flex items-center">
-                  <div className="text-red-400 text-lg mr-2">🗑️</div>
-                  <div className="text-red-200 text-sm">
-                    <strong>Warning:</strong> This action cannot be undone. All unsaved data will be lost.
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-4">
-              <button
-                type="button"
-                className="btn bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-semibold"
-                onClick={cancelTeamChange}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg font-semibold"
-                onClick={confirmTeamChange}
-              >
-                Switch & Clear Data
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Hover modal for match details */}
       {hoveredMatchId && (() => {
@@ -1743,6 +1484,13 @@ export default function HomePage() {
           </div>
         );
       })()}
+      
+      {/* Profile Modal */}
+      <ProfileModal 
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={currentUser}
+      />
     </div>
   );
 }
@@ -2034,3 +1782,144 @@ function LaneSelectModal({ open, onClose, onSelect, availableLanes = LANE_OPTION
     </div>
   );
 }
+
+// Profile Modal Component
+function ProfileModal({ isOpen, onClose, user }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700">
+        {/* Header */}
+        <div className="bg-gray-800 px-6 py-4 rounded-t-xl flex justify-between items-center border-b border-gray-700">
+          <h2 className="text-xl font-bold text-white">Profile</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white text-2xl font-bold transition-colors"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 bg-gray-900 rounded-b-xl">
+          {/* User Profile Section */}
+          <div className="flex items-start mb-6">
+            {/* Profile Picture */}
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mr-4 shadow-lg">
+              <svg className="w-12 h-12" fill="white" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
+
+            {/* User Info */}
+            <div className="flex-1">
+              <h3 className="text-2xl font-bold text-white mb-1">
+                {user?.name || 'User Name'}
+              </h3>
+              <p className="text-gray-400 text-sm mb-3">
+                @{user?.email?.split('@')[0] || 'username'}
+              </p>
+              
+              {/* Status Tags */}
+              <div className="flex gap-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-900/30 text-emerald-300 border border-emerald-500/40">
+                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                  </svg>
+                  Active
+                </span>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-900/30 text-indigo-300 border border-indigo-500/40">
+                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                  </svg>
+                  User
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Information Sections */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Contact Information */}
+            <div>
+              <h4 className="text-lg font-semibold text-white mb-4">Contact Information</h4>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span className="text-gray-300">@{user?.email?.split('@')[0] || 'username'}</span>
+                </div>
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  <span className="text-gray-300">Not provided</span>
+                </div>
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 text-amber-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  <span className="text-gray-300">••••••••</span>
+                  <button className="ml-2 text-gray-400 hover:text-white transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Account Information */}
+            <div>
+              <h4 className="text-lg font-semibold text-white mb-4">Account Information</h4>
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-gray-300">Last Login: {new Date().toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}</span>
+                </div>
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-gray-300">Date Added: {new Date().toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}</span>
+                </div>
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-gray-300">Last Updated: {new Date().toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
