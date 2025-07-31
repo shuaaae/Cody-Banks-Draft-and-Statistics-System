@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import mobaImg from '../assets/moba1.png';
 import bgImg from '../assets/bg.jpg';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
 import { FaHome, FaDraftingCompass, FaUserFriends, FaUsers, FaChartBar, FaSignOutAlt } from 'react-icons/fa';
 import html2canvas from 'html2canvas';
 import PageTitle from '../components/PageTitle';
+import Header from '../components/Header';
 import useSessionTimeout from '../hooks/useSessionTimeout';
+import { getHeroData } from '../App';
 
 export default function MockDraft() {
   const navigate = useNavigate();
   const [heroList, setHeroList] = useState([]);
+  const [heroLoading, setHeroLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('All');
   const [assignedSlots, setAssignedSlots] = useState({
     blueBans: Array(5).fill(null),
@@ -33,7 +35,6 @@ export default function MockDraft() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   // User avatar state
   const [currentUser, setCurrentUser] = useState(null);
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false); // Add profile modal state
 
   // User session timeout: 30 minutes
@@ -49,20 +50,6 @@ export default function MockDraft() {
     setCurrentUser(user);
   }, [navigate]);
 
-  // Handle click outside dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showUserDropdown && !event.target.closest('.user-dropdown')) {
-        setShowUserDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showUserDropdown]);
-
   const handleLogout = () => {
     localStorage.removeItem('currentUser');
     localStorage.removeItem('authToken');
@@ -71,13 +58,22 @@ export default function MockDraft() {
     navigate('/');
   };
 
+  // Load hero data with caching
   useEffect(() => {
-    fetch('/api/heroes')
-      .then(res => res.json())
-      .then(data => {
-        console.log('Fetched heroes:', data);
+    const loadHeroData = async () => {
+      try {
+        setHeroLoading(true);
+        const data = await getHeroData();
+        console.log('Loaded heroes:', data);
         setHeroList(data);
-      });
+      } catch (error) {
+        console.error('Error loading hero data:', error);
+      } finally {
+        setHeroLoading(false);
+      }
+    };
+
+    loadHeroData();
   }, []);
 
   // Draft phase order: blue-red-blue-red-blue-red (ban), blue-red-blue-red-blue-red (pick), blue-red-blue-red (ban), blue-red-blue-red (pick)
@@ -286,14 +282,6 @@ export default function MockDraft() {
     return step && step.type === type && step.team === team && step.index === idx;
   }
 
-  // Navbar links config
-  const navLinks = [
-    { label: 'DATA DRAFT', path: '/home' },
-    { label: 'MOCK DRAFT', path: '/mock-draft' },
-    { label: 'PLAYERS STATISTIC', path: '/players-statistic' },
-    { label: 'WEEKLY REPORT', path: '/weekly-report' },
-  ];
-
   // Save draft as image
   async function handleSaveDraft() {
     setIsSavingDraft(true);
@@ -322,130 +310,13 @@ export default function MockDraft() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
       <PageTitle title="Mock Draft" />
-      {/* Top Navbar */}
-      <header
-        className="w-full fixed top-0 left-0 z-50 flex items-center justify-between px-12"
-        style={{
-          height: 80,
-          background: 'transparent',
-          boxShadow: 'none',
-        }}
-      >
-        {/* Logo */}
-        <div className="flex items-center gap-4 select-none cursor-pointer" onClick={() => navigate('/home')}>
-          <img
-            src={mobaImg}
-            alt="Logo"
-            className="h-32 w-32 object-contain"
-            style={{ borderRadius: 28, background: 'transparent', boxShadow: 'none' }}
-          />
-        </div>
-        {/* Nav Links */}
-        <nav className="flex justify-end w-full">
-          <ul className="flex gap-10 mr-8">
-            {navLinks.map(link => (
-              <li key={link.label}>
-                <button
-                  className={`uppercase font-extrabold tracking-widest text-base transition-all px-2 py-1 ` +
-                    (window.location.pathname === link.path
-                      ? 'text-[#FFD600] border-b-2 border-[#FFD600]'
-                      : 'text-white hover:text-[#FFD600] hover:border-b-2 hover:border-[#FFD600]')}
-                  style={{ background: 'none', border: 'none', outline: 'none' }}
-                  onClick={() => navigate(link.path)}
-                >
-                  {link.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        {/* User Avatar and Dropdown */}
-        <div className="relative user-dropdown">
-          <button
-            onClick={() => setShowUserDropdown(!showUserDropdown)}
-            className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-105 shadow-lg"
-          >
-            {/* Square Avatar with Black and White Icon */}
-            <svg className="w-6 h-6" fill="white" stroke="black" strokeWidth="1" viewBox="0 0 24 24">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-          </button>
-
-          {/* Dropdown Menu */}
-          {showUserDropdown && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50">
-              {/* User Info Section */}
-              <div className="px-4 py-3 border-b border-gray-600">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-0">
-                    <svg className="w-6 h-6" fill="white" stroke="black" strokeWidth="1" viewBox="0 0 24 24">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-white font-medium text-sm">
-                      {currentUser?.name || 'User'}
-                    </div>
-                    <div className="text-gray-400 text-xs">
-                      {currentUser?.email || 'user@example.com'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Menu Items */}
-              <div className="py-1">
-                <button
-                  onClick={() => {
-                    setShowUserDropdown(false);
-                    setShowProfileModal(true);
-                  }}
-                  className="w-full px-4 py-2 text-left text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    Profile
-                  </div>
-                </button>
-                
-                <button
-                  onClick={() => {
-                    setShowUserDropdown(false);
-                    navigate('/');
-                  }}
-                  className="w-full px-4 py-2 text-left text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    Back to Home Page
-                  </div>
-                </button>
-
-                {/* Divider */}
-                <div className="border-t border-gray-600 my-1"></div>
-
-                {/* Logout Button */}
-                <button
-                  onClick={() => {
-                    setShowUserDropdown(false);
-                    handleLogout();
-                  }}
-                  className="w-full px-4 py-2 text-left text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <FaSignOutAlt className="w-4 h-4" />
-                    Logout
-                  </div>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
+      
+      {/* Header Component */}
+      <Header 
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onShowProfile={() => setShowProfileModal(true)}
+      />
 
       {/* Main Draft Board */}
       <div className="side-sections flex justify-center items-center min-h-[calc(100vh-80px)] flex-1" style={{ marginTop: 8 }}>
@@ -551,39 +422,49 @@ export default function MockDraft() {
                       backgroundPosition: 'center',
                     }}
                   >
-
-                    {uniqueFilteredHeroes
-                      .filter(hero => hero.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                      .map(hero => {
-                      // Only allow click if current step is ban/pick and hero is not already banned/picked
-                      const step = draftSteps[currentStep];
-                      const isBanned = bannedHeroes.includes(hero);
-                      const isPicked = pickedHeroes.includes(hero);
-                      const isDisabled = unavailableHeroes.includes(hero);
-                      const isSelectable =
-                        currentStep !== -1 &&
-                        step &&
-                        ((step.type === 'ban' && !isDisabled) ||
-                         (step.type === 'pick' && !isDisabled));
-                      return (
-                        <button
-                          key={hero.name}
-                          type="button"
-                          disabled={!isSelectable}
-                          onClick={() => isSelectable && handleHeroSelect(hero)}
-                          className="flex flex-col items-center w-full max-w-[5rem] focus:outline-none group"
-                          style={isSelectable ? { cursor: 'pointer' } : { cursor: 'not-allowed', opacity: 0.5 }}
-                        >
-                          <img
-                            src={`/heroes/${hero.role?.trim().toLowerCase()}/${hero.image}`}
-                            alt={hero.name}
-                            className="w-16 h-16 rounded-full object-cover transition-transform group-hover:scale-105 group-active:scale-95"
-                            draggable={false}
-                          />
-                          <span className="text-xs text-white mt-1 text-center truncate w-full">{hero.name}</span>
-                        </button>
-                      );
-                    })}
+                    {heroLoading ? (
+                      // Loading state
+                      <div className="col-span-full flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-white text-sm">Loading heroes...</span>
+                        </div>
+                      </div>
+                    ) : (
+                      // Hero grid
+                      uniqueFilteredHeroes
+                        .filter(hero => hero.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                        .map(hero => {
+                        // Only allow click if current step is ban/pick and hero is not already banned/picked
+                        const step = draftSteps[currentStep];
+                        const isBanned = bannedHeroes.includes(hero);
+                        const isPicked = pickedHeroes.includes(hero);
+                        const isDisabled = unavailableHeroes.includes(hero);
+                        const isSelectable =
+                          currentStep !== -1 &&
+                          step &&
+                          ((step.type === 'ban' && !isDisabled) ||
+                           (step.type === 'pick' && !isDisabled));
+                        return (
+                          <button
+                            key={hero.name}
+                            type="button"
+                            disabled={!isSelectable}
+                            onClick={() => isSelectable && handleHeroSelect(hero)}
+                            className="flex flex-col items-center w-full max-w-[5rem] focus:outline-none group"
+                            style={isSelectable ? { cursor: 'pointer' } : { cursor: 'not-allowed', opacity: 0.5 }}
+                          >
+                            <img
+                              src={`/heroes/${hero.role?.trim().toLowerCase()}/${hero.image}`}
+                              alt={hero.name}
+                              className="w-16 h-16 rounded-full object-cover transition-transform group-hover:scale-105 group-active:scale-95"
+                              draggable={false}
+                            />
+                            <span className="text-xs text-white mt-1 text-center truncate w-full">{hero.name}</span>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </div> {/* End of main draft board inner panel */}
               </div> {/* End of main draft board container */}

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PlayerController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\NotesController;
 
 // Test route
 Route::get('/test', function () {
@@ -54,6 +55,7 @@ Route::middleware(['api', 'admin'])->group(function () {
 
 // Protected routes for authenticated users (non-admin)
 Route::middleware(['api'])->group(function () {
-    // Add any user-specific protected routes here
+    // Notes routes
+    Route::apiResource('notes', NotesController::class);
 });
 });

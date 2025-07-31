@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import mobaImg from '../assets/moba1.png';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaTrash, FaSignOutAlt } from 'react-icons/fa';
 import PageTitle from '../components/PageTitle';
+import Header from '../components/Header';
 import useSessionTimeout from '../hooks/useSessionTimeout';
+import { getMatchesData, clearMatchesCache } from '../App';
 
 // Add lane options
 const LANE_OPTIONS = [
@@ -76,23 +77,67 @@ export default function HomePage() {
   const [playstyle, setPlaystyle] = useState('');
   const [deleteConfirmMatch, setDeleteConfirmMatch] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // Start with loading true
-  const [lastFetchTime, setLastFetchTime] = useState(0);
-  const [cachedMatches, setCachedMatches] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [isFetching, setIsFetching] = useState(false); // Add flag to prevent multiple requests
   const [itemsPerPage] = useState(20); // Show 20 matches per page
   const loadingTimeoutRef = useRef(null); // Add timeout ref for 3-second loading limit
-  const isRequestInProgressRef = useRef(false); // Add ref to track request state
 
   const [heroPickerSelected, setHeroPickerSelected] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const navigate = useNavigate();
   const isMountedRef = useRef(true);
 
+  // Image loading optimization
+  const [loadedImages, setLoadedImages] = useState(new Set());
+  const [imageCache, setImageCache] = useState(new Map());
+
   // User session timeout: 30 minutes
   useSessionTimeout(30, 'currentUser', '/');
+
+  // Optimized ban hero icon component - converted to proper React component
+  const OptimizedBanHeroIcon = React.memo(({ heroName }) => {
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [hasError, setHasError] = useState(false);
+    
+    const hero = heroList.find(h => h.name === heroName);
+    const imagePath = hero ? `/heroes/${hero.role}/${hero.image}` : null;
+    
+    useEffect(() => {
+      if (imagePath && loadedImages.has(imagePath)) {
+        setIsLoaded(true);
+      }
+    }, [imagePath, loadedImages]);
+    
+    if (!hero || !imagePath) {
+      return (
+        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#23283a', border: '2px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+      );
+    }
+    
+    return (
+      <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: '#181A20', border: '2px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px #0002', transition: 'transform 0.15s', pointerEvents: 'auto' }} className="hover:scale-110 hover:shadow-lg">
+        {!isLoaded && !hasError && (
+          <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+        )}
+        <img 
+          src={imagePath} 
+          alt={heroName} 
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'cover', 
+            border: 'none',
+            opacity: isLoaded ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+            display: isLoaded ? 'block' : 'none'
+          }} 
+          onLoad={() => setIsLoaded(true)}
+          onError={() => setHasError(true)}
+          loading="lazy"
+        />
+      </div>
+    );
+  });
 
   // Check if user is logged in and is not admin
   useEffect(() => {
@@ -101,220 +146,163 @@ export default function HomePage() {
       navigate('/');
       return;
     }
-    if (user.is_admin) {
-      navigate('/admin/dashboard');
-      return;
-    }
     setCurrentUser(user);
   }, [navigate]);
 
-  // Handle clicking outside dropdown to close it
+  // Load matches data with global caching
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showUserDropdown && !event.target.closest('.user-dropdown')) {
-        setShowUserDropdown(false);
+    const loadMatchesData = async () => {
+      try {
+        setIsLoading(true);
+        setErrorMessage('');
+        
+        // Get current team from localStorage
+        const latestTeam = localStorage.getItem('latestTeam');
+        const teamData = latestTeam ? JSON.parse(latestTeam) : null;
+        const teamId = teamData?.id;
+        
+        console.log('Loading matches data for team:', teamId);
+        const data = await getMatchesData(teamId);
+        
+        console.log('Loaded matches:', data);
+        setMatches(data || []);
+        
+      } catch (error) {
+        console.error('Error loading matches data:', error);
+        setErrorMessage('Failed to load matches');
+        setMatches([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+    loadMatchesData();
+  }, []);
+
+  // Load heroes data
+  useEffect(() => {
+    const loadHeroes = async () => {
+      try {
+        const response = await fetch('/api/heroes');
+        const data = await response.json();
+        setHeroList(data);
+        
+        // Preload hero images for better performance
+        preloadHeroImages(data);
+      } catch (error) {
+        console.error('Error loading heroes:', error);
+      }
     };
-  }, [showUserDropdown]);
+
+    loadHeroes();
+  }, []);
+
+  // Preload hero images for better performance
+  const preloadHeroImages = useCallback((heroes) => {
+    const newImageCache = new Map();
+    const newLoadedImages = new Set();
+    
+    heroes.forEach(hero => {
+      const imagePath = `/heroes/${hero.role}/${hero.image}`;
+      newImageCache.set(hero.name, imagePath);
+      
+      // Preload the image
+      const img = new Image();
+      img.onload = () => {
+        newLoadedImages.add(imagePath);
+        setLoadedImages(prev => new Set([...prev, imagePath]));
+      };
+      img.onerror = () => {
+        console.warn(`Failed to preload image: ${imagePath}`);
+      };
+      img.src = imagePath;
+    });
+    
+    setImageCache(newImageCache);
+  }, []);
+
+  // Optimized hero image component - converted to proper React component
+  const OptimizedHeroImage = React.memo(({ heroName, size = 40, isBan = false, className = "" }) => {
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [hasError, setHasError] = useState(false);
+    
+    const hero = heroList.find(h => h.name === heroName);
+    const imagePath = hero ? `/heroes/${hero.role}/${hero.image}` : null;
+    
+    useEffect(() => {
+      if (imagePath && loadedImages.has(imagePath)) {
+        setIsLoaded(true);
+      }
+    }, [imagePath, loadedImages]);
+    
+    if (!hero || !imagePath) {
+      return (
+        <div 
+          style={{ 
+            width: size, 
+            height: size, 
+            borderRadius: '50%', 
+            background: '#23283a', 
+            border: '2px solid #23283a' 
+          }} 
+          className={className}
+        />
+      );
+    }
+    
+    return (
+      <div style={{ position: 'relative' }}>
+        {!isLoaded && !hasError && (
+          <div 
+            style={{ 
+              width: size, 
+              height: size, 
+              borderRadius: '50%', 
+              background: '#23283a',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }} 
+            className={className}
+          >
+            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+        <img
+          src={imagePath}
+          alt={heroName}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: '50%',
+            objectFit: 'cover',
+            border: isBan ? '2px solid #f87171' : '2px solid #22c55e',
+            background: '#181A20',
+            opacity: isLoaded ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+            display: isLoaded ? 'block' : 'none'
+          }}
+          className={`${className} hover:scale-110 hover:shadow-lg transition-transform duration-200`}
+          onLoad={() => setIsLoaded(true)}
+          onError={() => setHasError(true)}
+          loading="lazy"
+        />
+      </div>
+    );
+  });
 
   // Function to clear all data when switching to a new team
   const clearAllData = useCallback(() => {
     console.log('Clearing all data for new team...');
     setMatches([]);
-    setCachedMatches([]);
-    setLastFetchTime(0);
-    setCurrentPage(1);
-    setBanning({
-      blue1: [], blue2: [], red1: [], red2: []
-    });
-    setPicks({ blue: { 1: [], 2: [] }, red: { 1: [], 2: [] } });
     setTurtleTakenBlue('');
     setTurtleTakenRed('');
     setLordTakenBlue('');
     setLordTakenRed('');
     setNotes('');
     setPlaystyle('');
-  }, []);
-
-
-
-
-
-  // Separate function to process matches data (defined first)
-  const processMatchesData = useCallback((data) => {
-    console.log('Processing matches data:', data.length, 'matches');
-    
-    // Sort latest to oldest by match_date and id
-    const sorted = [...data].sort((a, b) => {
-      if (a.match_date === b.match_date) return b.id - a.id;
-      return new Date(b.match_date) - new Date(a.match_date);
-    });
-    
-    console.log('Setting matches to:', sorted.length, 'matches');
-    setMatches(sorted || []);
-    setCurrentPage(1); // Reset to first page when data changes
-  }, []);
-
-  // Optimized API fetching with caching and debouncing (defined after processMatchesData)
-  const fetchMatches = useCallback(async (forceRefresh = false) => {
-    console.log('fetchMatches called with forceRefresh:', forceRefresh);
-    const now = Date.now();
-    const cacheAge = now - lastFetchTime;
-    const cacheValid = cacheAge < 30000; // 30 seconds cache
-
-    // Use cache if available and not too old
-    if (!forceRefresh && cachedMatches.length > 0 && cacheValid) {
-      console.log('Using cached matches data');
-      processMatchesData(cachedMatches);
-      setErrorMessage(''); // Clear any error messages
-      setIsLoading(false); // Ensure loading is set to false when using cache
-      return;
-    }
-
-    // Prevent multiple simultaneous requests using ref
-    if (isRequestInProgressRef.current) {
-      console.log('Request already in progress, skipping...');
-      return;
-    }
-
-    // Set request in progress flag
-    isRequestInProgressRef.current = true;
-    setIsLoading(true);
-    setIsFetching(true);
-    console.log('Fetching fresh matches data...');
-
-    // Set 3-second timeout to force loading to stop
-    loadingTimeoutRef.current = setTimeout(() => {
-      console.log('3-second timeout reached, forcing loading to stop');
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        setIsFetching(false);
-        isRequestInProgressRef.current = false;
-      }
-    }, 3000);
-
-    try {
-      // Get current team from localStorage
-      const latestTeam = localStorage.getItem('latestTeam');
-      const teamData = latestTeam ? JSON.parse(latestTeam) : null;
-      const teamId = teamData?.id;
-      
-      // Build URL with team filtering
-      const url = teamId ? `/api/matches?team_id=${teamId}` : '/api/matches';
-      console.log('Fetching matches from:', url);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-
-      // Add performance headers - fetch matches with team filtering
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-          'Accept': 'application/json',
-          'Accept-Encoding': 'gzip, deflate, br'
-        }
-      });
-
-      clearTimeout(timeoutId);
-      console.log('Matches response status:', response.status);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      console.log('API Response:', { status: response.status, dataLength: data.length });
-      
-      // Cache the data
-      setCachedMatches(data);
-      setLastFetchTime(now);
-      
-      // Process the data
-      processMatchesData(data);
-      
-      // Direct backup call to setMatches to ensure it's updated
-      setMatches(data || []);
-      
-      // Clear any previous error messages
-      setErrorMessage('');
-      
-      console.log(`Successfully loaded ${data.length} matches`);
-      
-    } catch (error) {
-      console.error('Error fetching matches:', error);
-      
-      let errorMsg = 'Failed to load matches';
-      if (error.name === 'AbortError') {
-        errorMsg = 'Request timed out after 15 seconds';
-        console.error('Request timed out after 15 seconds');
-      } else if (error.message.includes('Failed to fetch')) {
-        errorMsg = 'Network error - backend might not be running';
-        console.error('Network error - backend might not be running');
-      } else {
-        errorMsg = error.message || 'Unknown error occurred';
-      }
-      
-      setErrorMessage(errorMsg);
-      // Always set empty matches on error
-      setMatches([]);
-      setCachedMatches([]);
-      setLastFetchTime(0);
-    } finally {
-      console.log('Setting loading to false');
-      // Clear the timeout if it hasn't fired yet
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
-      }
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        setIsFetching(false);
-        isRequestInProgressRef.current = false;
-      }
-    }
-  }, [lastFetchTime, processMatchesData, cachedMatches]); // Remove problematic dependencies
-
-  // Call fetchMatches when component mounts
-  useEffect(() => {
-    console.log('Component mounted, calling fetchMatches...');
-    fetchMatches();
-    
-    // Cleanup function to clear timeout when component unmounts
-    return () => {
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
-      }
-    };
-  }, []); // Empty dependency array to only run once on mount
-
-  // Load heroes when component mounts
-  useEffect(() => {
-    const loadHeroes = async () => {
-      try {
-        console.log('Loading heroes...');
-        const response = await fetch('/api/heroes');
-        if (response.ok) {
-          const heroes = await response.json();
-          console.log('Heroes loaded:', heroes.length);
-          setHeroList(heroes);
-        } else {
-          console.error('Failed to load heroes:', response.status);
-        }
-      } catch (error) {
-        console.error('Error loading heroes:', error);
-      }
-    };
-    
-    loadHeroes();
+    // Clear the global matches cache when switching teams
+    clearMatchesCache();
   }, []);
 
   // Function to reset all form data
@@ -528,31 +516,23 @@ export default function HomePage() {
         const currentTeamData = JSON.parse(localStorage.getItem('latestTeam'));
         const teamId = currentTeamData?.id;
         
-        fetch(`/api/matches${teamId ? `?team_id=${teamId}` : ''}`)
-          .then(res => res.json())
-          .then(teamMatches => {
-            if (teamMatches && teamMatches.length > 0) {
-              teamMatches.sort((a, b) => {
-                if (a.match_date === b.match_date) return b.id - a.id;
-                return new Date(b.match_date) - new Date(a.match_date);
-              });
-              setMatches(teamMatches);
-              // Update cache with filtered data
-              setCachedMatches(teamMatches);
-              setLastFetchTime(Date.now());
-            } else {
-              setMatches([]);
-              setCachedMatches([]);
-              setLastFetchTime(Date.now());
-            }
-          })
-          .catch(error => {
-            console.error('Error refetching matches after export:', error);
-            // On error, still clear the form and close modal
+        // Reload matches data using global cache after export
+        try {
+          const data = await getMatchesData(teamId);
+          if (data && data.length > 0) {
+            data.sort((a, b) => {
+              if (a.match_date === b.match_date) return b.id - a.id;
+              return new Date(b.match_date) - new Date(a.match_date);
+            });
+            setMatches(data);
+          } else {
             setMatches([]);
-            setCachedMatches([]);
-            setLastFetchTime(Date.now());
-          });
+          }
+        } catch (error) {
+          console.error('Error refetching matches after export:', error);
+          // On error, still clear the form and close modal
+          setMatches([]);
+        }
       } else {
         // Get the error response from the server
         const errorData = await response.text();
@@ -599,141 +579,16 @@ export default function HomePage() {
     navigate('/');
   };
 
-  // Navbar links config
-  const navLinks = [
-    { label: 'DATA DRAFT', path: '/home' },
-    { label: 'MOCK DRAFT', path: '/mock-draft' },
-    { label: 'PLAYERS STATISTIC', path: '/players-statistic' },
-    { label: 'WEEKLY REPORT', path: '/weekly-report' },
-  ];
-
   return (
     <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
       <PageTitle title="Data Draft" />
-      {/* Top Navbar */}
-      <header
-        className="w-full fixed top-0 left-0 z-50 flex items-center justify-between px-12"
-        style={{
-          height: 80,
-          background: 'transparent', // No background, blends with page
-          boxShadow: 'none',
-        }}
-      >
-        {/* Logo and Title */}
-        <div className="flex items-center gap-4 select-none cursor-pointer" onClick={() => navigate('/home')}>
-          <img
-            src={mobaImg}
-            alt="Logo"
-            className="h-32 w-32 object-contain"
-            style={{ borderRadius: 28, background: 'transparent', boxShadow: 'none' }}
-          />
-        </div>
-        {/* Nav Links */}
-        <nav className="flex justify-end w-full">
-          <ul className="flex gap-10 mr-8">
-            {navLinks.map(link => (
-              <li key={link.label}>
-                <button
-                  className={`uppercase font-extrabold tracking-widest text-base transition-all px-2 py-1 ` +
-                    (window.location.pathname === link.path
-                      ? 'text-[#FFD600] border-b-2 border-[#FFD600]'
-                      : 'text-white hover:text-[#FFD600] hover:border-b-2 hover:border-[#FFD600]')}
-                  style={{ background: 'none', border: 'none', outline: 'none' }}
-                  onClick={() => navigate(link.path)}
-                >
-                  {link.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        {/* User Avatar and Dropdown */}
-        <div className="relative user-dropdown">
-          <button
-            onClick={() => setShowUserDropdown(!showUserDropdown)}
-            className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white transition-all duration-200 hover:scale-105 shadow-lg"
-          >
-            {/* Square Avatar with Black and White Icon */}
-            <svg className="w-6 h-6" fill="white" stroke="black" strokeWidth="1" viewBox="0 0 24 24">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-          </button>
-
-          {/* Dropdown Menu */}
-          {showUserDropdown && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50">
-              {/* User Info Section */}
-              <div className="px-4 py-3 border-b border-gray-600">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-0">
-                    <svg className="w-6 h-6" fill="white" stroke="black" strokeWidth="1" viewBox="0 0 24 24">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-white font-medium text-sm">
-                      {currentUser?.name || 'User'}
-                    </div>
-                    <div className="text-gray-400 text-xs">
-                      {currentUser?.email || 'user@example.com'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Menu Items */}
-              <div className="py-1">
-                <button
-                  onClick={() => {
-                    setShowUserDropdown(false);
-                    setShowProfileModal(true);
-                  }}
-                  className="w-full px-4 py-2 text-left text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    Profile
-                  </div>
-                </button>
-                
-                <button
-                  onClick={() => {
-                    setShowUserDropdown(false);
-                    navigate('/');
-                  }}
-                  className="w-full px-4 py-2 text-left text-gray-300 hover:text-white hover:bg-gray-700 transition-colors text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    Back to Home Page
-                  </div>
-                </button>
-
-                {/* Divider */}
-                <div className="border-t border-gray-600 my-1"></div>
-
-                {/* Logout Button */}
-                <button
-                  onClick={() => {
-                    setShowUserDropdown(false);
-                    handleLogout();
-                  }}
-                  className="w-full px-4 py-2 text-left text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <FaSignOutAlt className="w-4 h-4" />
-                    Logout
-                  </div>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
+      
+      {/* Header Component */}
+      <Header 
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onShowProfile={() => setShowProfileModal(true)}
+      />
 
       {/* Main Content */}
       <main className="flex flex-col items-center px-2 flex-1" style={{ marginTop: 80, paddingTop: 0 }}>
@@ -769,7 +624,33 @@ export default function HomePage() {
                   <button
                     onClick={() => {
                       setErrorMessage('');
-                      fetchMatches(true);
+                      // Reload matches data using global cache
+                      const loadMatchesData = async () => {
+                        try {
+                          setIsLoading(true);
+                          setErrorMessage('');
+                          
+                          // Get current team from localStorage
+                          const latestTeam = localStorage.getItem('latestTeam');
+                          const teamData = latestTeam ? JSON.parse(latestTeam) : null;
+                          const teamId = teamData?.id;
+                          
+                          console.log('Reloading matches data for team:', teamId);
+                          const data = await getMatchesData(teamId);
+                          
+                          console.log('Reloaded matches:', data);
+                          setMatches(data || []);
+                          
+                        } catch (error) {
+                          console.error('Error reloading matches data:', error);
+                          setErrorMessage('Failed to load matches');
+                          setMatches([]);
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      };
+                      
+                      loadMatchesData();
                     }}
                     className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
                   >
@@ -845,7 +726,7 @@ export default function HomePage() {
                                     const hero = heroList.find(h => h.name === heroName);
                                     return hero ? (
                                       <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                        <ModalBanHeroIcon src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
+                                        <OptimizedBanHeroIcon heroName={heroName} />
                                         <span style={{ fontSize: '10px', color: '#f87171', fontWeight: 'bold' }}>{heroName}</span>
                                       </div>
                                     ) : null;
@@ -861,18 +742,7 @@ export default function HomePage() {
                                     const hero = heroList.find(h => h.name === heroName);
                                     return hero ? (
                                       <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                        <img
-                                          src={`/heroes/${hero.role}/${hero.image}`}
-                                          alt={heroName}
-                                          style={{
-                                            width: 56,
-                                            height: 56,
-                                            borderRadius: '50%',
-                                            objectFit: 'cover',
-                                            border: '2px solid #22c55e',
-                                            background: '#181A20'
-                                          }}
-                                        />
+                                        <OptimizedHeroImage heroName={heroName} size={56} />
                                         <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 'bold' }}>{heroName}</span>
                                       </div>
                                     ) : null;
@@ -887,7 +757,7 @@ export default function HomePage() {
                                     const hero = heroList.find(h => h.name === heroName);
                                     return hero ? (
                                       <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                        <ModalBanHeroIcon src={`/heroes/${hero.role}/${hero.image}`} alt={heroName} />
+                                        <OptimizedBanHeroIcon heroName={heroName} />
                                         <span style={{ fontSize: '10px', color: '#f87171', fontWeight: 'bold' }}>{heroName}</span>
                                       </div>
                                     ) : null;
@@ -903,18 +773,7 @@ export default function HomePage() {
                                     const hero = heroList.find(h => h.name === heroName);
                                     return hero ? (
                                       <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                        <img
-                                          src={`/heroes/${hero.role}/${hero.image}`}
-                                          alt={heroName}
-                                          style={{
-                                            width: 56,
-                                            height: 56,
-                                            borderRadius: '50%',
-                                            objectFit: 'cover',
-                                            border: '2px solid #22c55e',
-                                            background: '#181A20'
-                                          }}
-                                        />
+                                        <OptimizedHeroImage heroName={heroName} size={56} />
                                         <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 'bold' }}>{heroName}</span>
                                       </div>
                                     ) : null;
@@ -1409,14 +1268,9 @@ export default function HomePage() {
                 {/* Bans for Blue Team */}
                 <div style={{ display: 'flex', flexDirection: 'row', marginBottom: 12, marginLeft: 96 }}>
                   {getBans(blueTeam).map((heroName, idx) => {
-                    const img = getHeroImg(heroName);
                     return (
                       <div key={idx} style={{ margin: 0 }}>
-                        {img ? (
-                          <ModalBanHeroIcon src={img} alt={heroName} />
-                        ) : (
-                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#23283a', border: '2px solid #23283a' }} />
-                        )}
+                        <OptimizedBanHeroIcon heroName={heroName} />
                       </div>
                     );
                   })}
@@ -1425,14 +1279,9 @@ export default function HomePage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {getPicks(blueTeam).map((pickObj, idx) => {
                     const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
-                    const img = getHeroImg(heroName);
                     return (
                       <div key={idx} style={{ margin: 0 }}>
-                        {img ? (
-                          <img src={img} alt={heroName} style={{ width: 56, height: 56, borderRadius: '50%', border: '2px solid #22c55e', background: '#181A20', objectFit: 'cover', boxShadow: '0 2px 8px #0002', transition: 'transform 0.15s', pointerEvents: 'auto' }} className="hover:scale-110 hover:shadow-lg" />
-                        ) : (
-                          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#181A20', border: '2px solid #23283a' }} />
-                        )}
+                        <OptimizedHeroImage heroName={heroName} size={56} />
                       </div>
                     );
                   })}
@@ -1444,14 +1293,9 @@ export default function HomePage() {
                 {/* Bans for Red Team */}
                 <div style={{ display: 'flex', flexDirection: 'row', marginBottom: 12, marginRight: 96 }}>
                   {getBans(redTeam).map((heroName, idx) => {
-                    const img = getHeroImg(heroName);
                     return (
                       <div key={idx} style={{ margin: 0 }}>
-                        {img ? (
-                          <ModalBanHeroIcon src={img} alt={heroName} />
-                        ) : (
-                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#23283a', border: '2px solid #23283a' }} />
-                        )}
+                        <OptimizedBanHeroIcon heroName={heroName} />
                       </div>
                     );
                   })}
@@ -1460,16 +1304,9 @@ export default function HomePage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {getPicks(redTeam).map((pickObj, idx) => {
                     const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
-                    const img = getHeroImg(heroName);
                     return (
                       <div key={idx} style={{ margin: 0 }}>
-                        {img ? (
-                          <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', background: '#181A20', border: '2px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px #0002', transition: 'transform 0.15s', pointerEvents: 'auto' }} className="hover:scale-110 hover:shadow-lg">
-                            <img src={img} alt={heroName} style={{ width: '100%', height: '100%', objectFit: 'cover', border: 'none' }} />
-                          </div>
-                        ) : (
-                          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#181A20', border: '2px solid #23283a' }} />
-                        )}
+                        <OptimizedHeroImage heroName={heroName} size={56} />
                       </div>
                     );
                   })}
