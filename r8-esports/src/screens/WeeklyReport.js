@@ -51,6 +51,11 @@ export default function WeeklyReport() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSessionTimeoutModal, setShowSessionTimeoutModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showFullNoteModal, setShowFullNoteModal] = useState(false);
+  const [selectedNote, setSelectedNote] = useState(null);
+  const [sortOrder, setSortOrder] = useState('newest'); // 'newest' or 'oldest'
 
   // User session timeout: 30 minutes
   useSessionTimeout(30, 'currentUser', '/', (timeoutMinutes) => {
@@ -71,7 +76,6 @@ export default function WeeklyReport() {
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser');
-    localStorage.removeItem('authToken');
     localStorage.removeItem('adminUser');
     localStorage.removeItem('adminAuthToken');
     navigate('/');
@@ -85,12 +89,8 @@ export default function WeeklyReport() {
   // Function to load notes from database
   const loadNotesFromDatabase = async () => {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) return;
-
       const response = await fetch('/api/notes', {
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -114,16 +114,9 @@ export default function WeeklyReport() {
     }
 
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        alert('Please log in to save notes.');
-        return;
-      }
-
       const response = await fetch('/api/notes', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -139,7 +132,15 @@ export default function WeeklyReport() {
         await loadNotesFromDatabase();
         setNoteTitle('');
         setNotes('');
-        alert('Note saved successfully!');
+        
+        // Show success modal
+        setSuccessMessage('Note saved successfully!');
+        setShowSuccessModal(true);
+        
+        // Auto-hide modal after 2 seconds
+        setTimeout(() => {
+          setShowSuccessModal(false);
+        }, 2000);
       } else {
         alert(data.message || 'Failed to save note.');
       }
@@ -152,16 +153,9 @@ export default function WeeklyReport() {
   // Function to delete a saved note
   const handleDeleteNote = async (noteId) => {
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        alert('Please log in to delete notes.');
-        return;
-      }
-
       const response = await fetch(`/api/notes/${noteId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -171,7 +165,15 @@ export default function WeeklyReport() {
       if (response.ok && data.success) {
         // Reload notes from database
         await loadNotesFromDatabase();
-        alert('Note deleted successfully!');
+        
+        // Show success modal
+        setSuccessMessage('Note deleted successfully!');
+        setShowSuccessModal(true);
+        
+        // Auto-hide modal after 2 seconds
+        setTimeout(() => {
+          setShowSuccessModal(false);
+        }, 2000);
       } else {
         alert(data.message || 'Failed to delete note.');
       }
@@ -181,16 +183,51 @@ export default function WeeklyReport() {
     }
   };
 
+  // Function to view full note
+  const handleViewFullNote = (note) => {
+    setSelectedNote(note);
+    setShowFullNoteModal(true);
+  };
+
+  // Function to format date in MM/DD/YY format
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const year = date.getFullYear().toString().slice(-2);
+    return `${month}/${day}/${year}`;
+  };
+
+  // Function to sort notes by date
+  const getSortedNotes = () => {
+    return [...savedNotes].sort((a, b) => {
+      const dateA = new Date(a.created_at);
+      const dateB = new Date(b.created_at);
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+  };
+
   // Helper to get current team from localStorage
   function getCurrentTeam(data) {
     try {
       const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
-      if (latestTeam && latestTeam.teamName) return latestTeam.teamName;
-    } catch {}
+      if (latestTeam && latestTeam.teamName) {
+        console.log('Found team in localStorage:', latestTeam.teamName);
+        return latestTeam.teamName;
+      }
+    } catch (error) {
+      console.log('Error parsing latestTeam from localStorage:', error);
+    }
+    
     // fallback: first team in data
     for (const match of data) {
-      if (match.teams && match.teams.length > 0) return match.teams[0].team;
+      if (match.teams && match.teams.length > 0) {
+        console.log('Using fallback team:', match.teams[0].team);
+        return match.teams[0].team;
+      }
     }
+    
+    console.log('No team found, will show all matches');
     return '';
   }
 
@@ -203,28 +240,59 @@ export default function WeeklyReport() {
     fetch('/api/matches')
       .then(res => res.json())
       .then(data => {
+        console.log('All matches data:', data); // Debug log
+        
         const currentTeam = getCurrentTeam(data);
-        // Filter matches by date range and current team
-        const filtered = data.filter(match => {
+        console.log('Current team:', currentTeam); // Debug log
+        
+        // Filter matches by date range first
+        const dateFiltered = data.filter(match => {
           const d = new Date(match.match_date);
-          // Only include matches where current team participated
-          return d >= new Date(startDate) && d <= new Date(endDate) && match.teams.some(t => t.team === currentTeam);
+          return d >= new Date(startDate) && d <= new Date(endDate);
         });
+        
+        console.log('Date filtered matches:', dateFiltered); // Debug log
+        
+        // If no specific team is selected, show all matches in the date range
+        let filtered;
+        if (currentTeam && currentTeam.trim() !== '') {
+          // Filter by current team if one is selected
+          filtered = dateFiltered.filter(match => 
+            match.teams && match.teams.some(t => t.team === currentTeam)
+          );
+        } else {
+          // Show all matches in the date range if no team is selected
+          filtered = dateFiltered;
+        }
+        
+        console.log('Final filtered matches:', filtered); // Debug log
+        
         // Group by day
         const dayMap = {};
         for (let d = new Date(startDate); d <= new Date(endDate); d.setDate(d.getDate() + 1)) {
           const key = d.toISOString().slice(0, 10);
           dayMap[key] = { win: 0, lose: 0 };
         }
+        
         filtered.forEach(match => {
           const key = new Date(match.match_date).toISOString().slice(0, 10);
           if (!(key in dayMap)) return;
-          // Find the current team in this match
-          const team = match.teams.find(t => t.team === currentTeam);
-          if (!team) return;
-          if (team.team === match.winner) dayMap[key].win++;
-          else dayMap[key].lose++;
+          
+          // If we have a specific team, use that team's result
+          if (currentTeam && currentTeam.trim() !== '') {
+            const team = match.teams.find(t => t.team === currentTeam);
+            if (!team) return;
+            if (team.team === match.winner) dayMap[key].win++;
+            else dayMap[key].lose++;
+          } else {
+            // If no specific team, just count the total matches for the day
+            // We'll count this as a "win" for the day to show activity
+            dayMap[key].win++;
+          }
         });
+        
+        console.log('Day map:', dayMap); // Debug log
+        
         // Build progression array
         const days = Object.keys(dayMap).sort();
         const progression = days.map(day => {
@@ -236,10 +304,33 @@ export default function WeeklyReport() {
             lose
           };
         });
+        
+        console.log('Progression data:', progression); // Debug log
         setProgressionData(progression);
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error('Error fetching matches:', error);
         setLoading(false);
       });
   }, [startDate, endDate]);
+
+  // Custom CSS for hiding scrollbars and line clamping
+  const scrollbarHideStyles = `
+    .scrollbar-hide {
+      -ms-overflow-style: none;  /* Internet Explorer 10+ */
+      scrollbar-width: none;  /* Firefox */
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;  /* Safari and Chrome */
+    }
+    .line-clamp-4 {
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  `;
 
      return (
      <div className="h-screen flex flex-col overflow-hidden" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
@@ -401,27 +492,48 @@ export default function WeeklyReport() {
            
                        {/* Saved Notes Display - Below Chart */}
             <div className="w-[900px] max-w-5xl mt-6">
-              <div className="bg-[#23232a] rounded-xl shadow-lg p-6 border border-gray-700">
-               <h3 className="text-gray-200 font-semibold mb-4 text-lg">Saved Notes</h3>
+              <div className="bg-[#23232a rounded-xl shadow-lg p-6 border border-gray-700 max-h-72 overflow-y-auto">
+               <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-gray-200 font-semibold text-lg">Saved Notes</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400 text-sm">Sort by:</span>
+                    <select
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value)}
+                      className="bg-[#1a1a1f] text-white text-sm rounded px-3 py-1 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="oldest">Oldest First</option>
+                    </select>
+                  </div>
+                </div>
                {savedNotes.length === 0 ? (
                  <p className="text-gray-400 text-sm">No saved notes yet.</p>
                ) : (
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                   {savedNotes.map((note) => (
-                     <div key={note.id} className="bg-[#1a1a1f] rounded-lg p-4 border border-gray-600">
-                       <div className="flex justify-between items-start mb-3">
-                         <h4 className="text-white font-semibold text-sm">{note.title}</h4>
-                         <button
-                           onClick={() => handleDeleteNote(note.id)}
-                           className="text-red-400 hover:text-red-300 transition-colors"
-                           title="Delete note"
-                         >
-                           <FaTrash className="w-3 h-3" />
-                         </button>
+                   {getSortedNotes().map((note) => (
+                     <div 
+                         key={note.id} 
+                         className="bg-[#1a1a1f] rounded-lg p-4 border border-gray-600 hover:border-gray-500 transition-colors cursor-pointer"
+                         onClick={() => handleViewFullNote(note)}
+                       >
+                         <div className="flex justify-between items-center">
+                           <h4 className="text-white font-semibold text-sm truncate flex-1 mr-2">{note.title}</h4>
+                           <button
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               handleDeleteNote(note.id);
+                             }}
+                             className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
+                             title="Delete note"
+                           >
+                             <FaTrash className="w-3 h-3" />
+                           </button>
+                         </div>
+                         <div className="mt-2 text-center">
+                           <span className="text-gray-400 text-xs">{formatDate(note.created_at)}</span>
+                         </div>
                        </div>
-                       <p className="text-gray-300 text-xs mb-3">{note.date_formatted}</p>
-                       <p className="text-gray-200 text-sm whitespace-pre-wrap">{note.content}</p>
-                     </div>
                    ))}
                  </div>
                )}
@@ -442,6 +554,19 @@ export default function WeeklyReport() {
          isOpen={showSessionTimeoutModal}
          onClose={() => setShowSessionTimeoutModal(false)}
          timeoutMinutes={30}
+       />
+
+       {/* Success Modal */}
+       <SuccessModal
+         isOpen={showSuccessModal}
+         message={successMessage}
+       />
+
+       {/* Full Note Modal */}
+       <FullNoteModal
+         isOpen={showFullNoteModal}
+         onClose={() => setShowFullNoteModal(false)}
+         note={selectedNote}
        />
      </div>
    );
@@ -491,6 +616,93 @@ export default function WeeklyReport() {
              >
                OK
              </button>
+           </div>
+         </div>
+       </div>
+     </div>
+   );
+ }
+
+ // Full Note Modal Component
+ function FullNoteModal({ isOpen, onClose, note }) {
+   if (!isOpen || !note) return null;
+
+   return (
+     <div 
+       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50"
+       onClick={onClose}
+     >
+       <div 
+         className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700 max-h-[90vh] flex flex-col"
+         onClick={(e) => e.stopPropagation()}
+       >
+         {/* Header */}
+         <div className="bg-gray-800 px-6 py-4 rounded-t-xl flex justify-between items-center border-b border-gray-700 flex-shrink-0">
+           <h2 className="text-xl font-bold text-white">Full Note</h2>
+           <button
+             onClick={onClose}
+             className="text-gray-400 hover:text-white text-2xl font-bold transition-colors"
+           >
+             ×
+           </button>
+         </div>
+
+         {/* Content */}
+         <div className="p-6 bg-gray-900 rounded-b-xl flex-1 overflow-hidden flex flex-col">
+           <div className="mb-4 flex-shrink-0">
+             <h3 className="text-lg font-semibold text-white mb-2 break-words">{note.title}</h3>
+           </div>
+           
+           <div className="bg-gray-800 rounded-lg p-4 flex-1 overflow-y-auto overflow-x-hidden">
+             <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap break-words">
+               {note.content}
+             </p>
+           </div>
+         </div>
+       </div>
+     </div>
+   );
+ }
+
+ // Success Modal Component
+ function SuccessModal({ isOpen, message }) {
+   if (!isOpen) return null;
+
+   return (
+     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
+       <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-md mx-4 border border-green-500">
+         {/* Header */}
+         <div className="bg-green-800 px-6 py-4 rounded-t-xl flex justify-between items-center border-b border-green-700">
+           <h2 className="text-xl font-bold text-white">Success</h2>
+           <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
+             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+             </svg>
+           </div>
+         </div>
+
+         {/* Content */}
+         <div className="p-6 bg-gray-900 rounded-b-xl">
+           <div className="flex items-center mb-4">
+             <div className="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center mr-4">
+               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+               </svg>
+             </div>
+             <div>
+               <h3 className="text-lg font-semibold text-white">Operation Successful</h3>
+               <p className="text-gray-400 text-sm">Your action has been completed</p>
+             </div>
+           </div>
+           
+           <p className="text-gray-300 mb-6">
+             {message}
+           </p>
+
+           <div className="flex justify-end">
+             <div className="text-green-400 text-sm">
+               This modal will close automatically...
+             </div>
            </div>
          </div>
        </div>

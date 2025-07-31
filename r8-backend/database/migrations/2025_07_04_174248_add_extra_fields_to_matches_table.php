@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('matches', function (Blueprint $table) {
-            $table->integer('turtle_taken')->nullable();
-            $table->integer('lord_taken')->nullable();
+            $table->string('turtle_taken')->nullable();
+            $table->string('lord_taken')->nullable();
             $table->text('notes')->nullable();
             $table->string('playstyle')->nullable();
         });

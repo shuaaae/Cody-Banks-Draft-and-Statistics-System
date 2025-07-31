@@ -210,31 +210,30 @@ class PlayerController extends Controller
             $isWin = $team->team === $match->winner;
             // Combine picks1 and picks2
             $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
+            
             foreach ($picks as $pick) {
-                // Only count if player matches and role matches (for unique identification)
+                // Check if this pick matches the player's role/lane
                 if (
                     is_array($pick) &&
                     isset($pick['hero']) &&
-                    isset($pick['player']) &&
-                    strtolower($pick['player']) === strtolower($playerName) &&
                     isset($pick['lane']) &&
                     (!$role || strtolower($pick['lane']) === strtolower($role))
                 ) {
                     $hero = $pick['hero'];
-                } else {
-                    continue;
-                }
-                if (!isset($heroStats[$hero])) {
-                    $heroStats[$hero] = ['win' => 0, 'lose' => 0, 'total' => 0];
-                }
-                $heroStats[$hero]['total']++;
-                if ($isWin) {
-                    $heroStats[$hero]['win']++;
-                } else {
-                    $heroStats[$hero]['lose']++;
+                    
+                    if (!isset($heroStats[$hero])) {
+                        $heroStats[$hero] = ['win' => 0, 'lose' => 0, 'total' => 0];
+                    }
+                    $heroStats[$hero]['total']++;
+                    if ($isWin) {
+                        $heroStats[$hero]['win']++;
+                    } else {
+                        $heroStats[$hero]['lose']++;
+                    }
                 }
             }
         }
+        
         // Calculate winrate
         $result = [];
         foreach ($heroStats as $hero => $stat) {
@@ -281,29 +280,30 @@ class PlayerController extends Controller
 
         foreach ($matchTeams as $team) {
             $match = $team->match;
+            if (!$match) continue;
+            
             $isWin = $team->team === $match->winner;
-            $teamColor = $team->team_color ?? null;
+            
             // Find the enemy team in the same match
             $enemyTeam = $match->teams->first(function($t) use ($team) {
                 return $t->id !== $team->id;
             });
             if (!$enemyTeam) continue;
+            
             // Combine picks1 and picks2 for both teams
             $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
             $enemyPicks = array_merge($enemyTeam->picks1 ?? [], $enemyTeam->picks2 ?? []);
+            
             foreach ($picks as $pick) {
                 if (
                     is_array($pick) &&
                     isset($pick['hero']) &&
-                    isset($pick['player']) &&
-                    isset($pick['team']) &&
                     isset($pick['lane']) &&
-                    strtolower($pick['player']) === strtolower($playerName) &&
-                    strtolower($pick['team']) === strtolower($teamName) &&
                     (!$role || strtolower($pick['lane']) === strtolower($role))
                 ) {
                     $playerHero = $pick['hero'];
                     $lane = $pick['lane'];
+                    
                     // Find enemy hero in the same lane
                     $enemyPick = null;
                     foreach ($enemyPicks as $ep) {
@@ -312,9 +312,12 @@ class PlayerController extends Controller
                             break;
                         }
                     }
+                    
                     if (!$enemyPick) continue;
+                    
                     $enemyHero = $enemyPick['hero'];
                     $key = $playerHero . ' vs ' . $enemyHero;
+                    
                     if (!isset($h2hStats[$key])) {
                         $h2hStats[$key] = [
                             'player_hero' => $playerHero,
@@ -333,6 +336,7 @@ class PlayerController extends Controller
                 }
             }
         }
+        
         // Calculate winrate
         $result = [];
         foreach ($h2hStats as $stat) {

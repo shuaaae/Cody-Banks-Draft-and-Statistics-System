@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaTrash, FaSignOutAlt } from 'react-icons/fa';
@@ -77,36 +77,30 @@ export default function HomePage() {
   const [playstyle, setPlaystyle] = useState('');
   const [deleteConfirmMatch, setDeleteConfirmMatch] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // Start with loading true
+  const [isRefreshing, setIsRefreshing] = useState(false); // Track refresh state
   const [errorMessage, setErrorMessage] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20); // Show 20 matches per page
   const loadingTimeoutRef = useRef(null); // Add timeout ref for 3-second loading limit
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState('success'); // 'success' or 'error'
 
   const [heroPickerSelected, setHeroPickerSelected] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const navigate = useNavigate();
   const isMountedRef = useRef(true);
 
-  // Image loading optimization
-  const [loadedImages, setLoadedImages] = useState(new Set());
-  const [imageCache, setImageCache] = useState(new Map());
+
 
   // User session timeout: 30 minutes
   useSessionTimeout(30, 'currentUser', '/');
 
   // Optimized ban hero icon component - converted to proper React component
   const OptimizedBanHeroIcon = React.memo(({ heroName }) => {
-    const [isLoaded, setIsLoaded] = useState(false);
-    const [hasError, setHasError] = useState(false);
-    
-    const hero = heroList.find(h => h.name === heroName);
-    const imagePath = hero ? `/heroes/${hero.role}/${hero.image}` : null;
-    
-    useEffect(() => {
-      if (imagePath && loadedImages.has(imagePath)) {
-        setIsLoaded(true);
-      }
-    }, [imagePath, loadedImages]);
+    const [imageError, setImageError] = useState(false);
+    const hero = heroMap.get(heroName);
+    const imagePath = hero ? `/heroes/${hero.role}/${hero.image.replace('.png', '.webp')}` : null;
     
     if (!hero || !imagePath) {
       return (
@@ -116,28 +110,45 @@ export default function HomePage() {
     
     return (
       <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: '#181A20', border: '2px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px #0002', transition: 'transform 0.15s', pointerEvents: 'auto' }} className="hover:scale-110 hover:shadow-lg">
-        {!isLoaded && !hasError && (
-          <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-        )}
-        <img 
-          src={imagePath} 
-          alt={heroName} 
-          style={{ 
+        {!imageError ? (
+          <img 
+            src={imagePath} 
+            alt={heroName} 
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              objectFit: 'cover', 
+              border: 'none'
+            }} 
+            loading="lazy"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div style={{ 
             width: '100%', 
             height: '100%', 
-            objectFit: 'cover', 
-            border: 'none',
-            opacity: isLoaded ? 1 : 0,
-            transition: 'opacity 0.3s ease',
-            display: isLoaded ? 'block' : 'none'
-          }} 
-          onLoad={() => setIsLoaded(true)}
-          onError={() => setHasError(true)}
-          loading="lazy"
-        />
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            background: '#23283a',
+            color: '#f87171',
+            fontSize: '8px',
+            fontWeight: 'bold',
+            textAlign: 'center'
+          }}>
+            {heroName}
+          </div>
+        )}
       </div>
     );
   });
+
+  // Helper function to show alert modals
+  const showAlert = (message, type = 'success') => {
+    setAlertMessage(message);
+    setAlertType(type);
+    setShowAlertModal(true);
+  };
 
   // Check if user is logged in and is not admin
   useEffect(() => {
@@ -186,9 +197,6 @@ export default function HomePage() {
         const response = await fetch('/api/heroes');
         const data = await response.json();
         setHeroList(data);
-        
-        // Preload hero images for better performance
-        preloadHeroImages(data);
       } catch (error) {
         console.error('Error loading heroes:', error);
       }
@@ -197,43 +205,33 @@ export default function HomePage() {
     loadHeroes();
   }, []);
 
-  // Preload hero images for better performance
-  const preloadHeroImages = useCallback((heroes) => {
-    const newImageCache = new Map();
-    const newLoadedImages = new Set();
-    
-    heroes.forEach(hero => {
-      const imagePath = `/heroes/${hero.role}/${hero.image}`;
-      newImageCache.set(hero.name, imagePath);
-      
-      // Preload the image
-      const img = new Image();
-      img.onload = () => {
-        newLoadedImages.add(imagePath);
-        setLoadedImages(prev => new Set([...prev, imagePath]));
-      };
-      img.onerror = () => {
-        console.warn(`Failed to preload image: ${imagePath}`);
-      };
-      img.src = imagePath;
+  // Create heroMap for O(1) lookup performance
+  const heroMap = useMemo(() => {
+    const map = new Map();
+    heroList.forEach(hero => {
+      map.set(hero.name, hero);
     });
-    
-    setImageCache(newImageCache);
-  }, []);
+    return map;
+  }, [heroList]);
+
+  // Preload critical hero images for better perceived performance
+  useEffect(() => {
+    if (heroList.length > 0) {
+      const criticalHeroes = heroList.slice(0, 10); // Preload first 10 heroes
+      criticalHeroes.forEach(hero => {
+        const img = new Image();
+        img.src = `/heroes/${hero.role}/${hero.image.replace('.png', '.webp')}`;
+      });
+    }
+  }, [heroList]);
+
+
 
   // Optimized hero image component - converted to proper React component
   const OptimizedHeroImage = React.memo(({ heroName, size = 40, isBan = false, className = "" }) => {
-    const [isLoaded, setIsLoaded] = useState(false);
-    const [hasError, setHasError] = useState(false);
-    
-    const hero = heroList.find(h => h.name === heroName);
-    const imagePath = hero ? `/heroes/${hero.role}/${hero.image}` : null;
-    
-    useEffect(() => {
-      if (imagePath && loadedImages.has(imagePath)) {
-        setIsLoaded(true);
-      }
-    }, [imagePath, loadedImages]);
+    const [imageError, setImageError] = useState(false);
+    const hero = heroMap.get(heroName);
+    const imagePath = hero ? `/heroes/${hero.role}/${hero.image.replace('.png', '.webp')}` : null;
     
     if (!hero || !imagePath) {
       return (
@@ -251,43 +249,46 @@ export default function HomePage() {
     }
     
     return (
-      <div style={{ position: 'relative' }}>
-        {!isLoaded && !hasError && (
-          <div 
-            style={{ 
-              width: size, 
-              height: size, 
-              borderRadius: '50%', 
+      <>
+        {!imageError ? (
+          <img
+            src={imagePath}
+            alt={heroName}
+            style={{
+              width: size,
+              height: size,
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: isBan ? '2px solid #f87171' : '2px solid #22c55e',
+              background: '#181A20'
+            }}
+            className={`${className} hover:scale-110 hover:shadow-lg transition-transform duration-200`}
+            loading="lazy"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div
+            style={{
+              width: size,
+              height: size,
+              borderRadius: '50%',
               background: '#23283a',
+              border: isBan ? '2px solid #f87171' : '2px solid #22c55e',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
-            }} 
-            className={className}
+              justifyContent: 'center',
+              color: isBan ? '#f87171' : '#22c55e',
+              fontSize: Math.max(8, size * 0.15),
+              fontWeight: 'bold',
+              textAlign: 'center',
+              padding: '2px'
+            }}
+            className={`${className} hover:scale-110 hover:shadow-lg transition-transform duration-200`}
           >
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            {heroName}
           </div>
         )}
-        <img
-          src={imagePath}
-          alt={heroName}
-          style={{
-            width: size,
-            height: size,
-            borderRadius: '50%',
-            objectFit: 'cover',
-            border: isBan ? '2px solid #f87171' : '2px solid #22c55e',
-            background: '#181A20',
-            opacity: isLoaded ? 1 : 0,
-            transition: 'opacity 0.3s ease',
-            display: isLoaded ? 'block' : 'none'
-          }}
-          className={`${className} hover:scale-110 hover:shadow-lg transition-transform duration-200`}
-          onLoad={() => setIsLoaded(true)}
-          onError={() => setHasError(true)}
-          loading="lazy"
-        />
-      </div>
+      </>
     );
   });
 
@@ -410,9 +411,16 @@ export default function HomePage() {
     const blueTeam = document.getElementById('blue-team-input').value;
     const redTeam = document.getElementById('red-team-input').value;
 
-    // Basic validation
-    if (!matchDate || !winner || !blueTeam || !redTeam) {
-      alert('Please fill in all required fields: Date, Results, Blue Team, and Red Team');
+    // Basic validation with specific field checking
+    const missingFields = [];
+    if (!matchDate) missingFields.push('Date');
+    if (!winner) missingFields.push('Results');
+    if (!blueTeam) missingFields.push('Blue Team');
+    if (!redTeam) missingFields.push('Red Team');
+    
+    if (missingFields.length > 0) {
+      const fieldList = missingFields.join(', ');
+      showAlert(`Please fill in the following required fields: ${fieldList}`, 'error');
       return;
     }
 
@@ -505,6 +513,8 @@ export default function HomePage() {
         if (latestTeam && (blueTeam === latestTeam.teamName || redTeam === latestTeam.teamName)) {
           localStorage.setItem('latestMatch', JSON.stringify(payload));
         }
+        
+        // Clear form data
         setModalState('none');
         setTurtleTakenBlue('');
         setTurtleTakenRed('');
@@ -512,12 +522,22 @@ export default function HomePage() {
         setLordTakenRed('');
         setNotes('');
         setPlaystyle('');
+        
+        // Show refreshing state
+        setIsRefreshing(true);
+        
+        // Clear the matches cache to force a fresh fetch
+        clearMatchesCache();
+        
         // Refetch matches for current team only
         const currentTeamData = JSON.parse(localStorage.getItem('latestTeam'));
         const teamId = currentTeamData?.id;
         
-        // Reload matches data using global cache after export
+        // Reload matches data after clearing cache
         try {
+          // Add a small delay to show the refresh state
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           const data = await getMatchesData(teamId);
           if (data && data.length > 0) {
             data.sort((a, b) => {
@@ -532,16 +552,20 @@ export default function HomePage() {
           console.error('Error refetching matches after export:', error);
           // On error, still clear the form and close modal
           setMatches([]);
+        } finally {
+          setIsRefreshing(false);
+          // Show success message with more details
+          showAlert('Match exported successfully! The match has been added to your data table.', 'success');
         }
       } else {
         // Get the error response from the server
         const errorData = await response.text();
         console.error('Server error:', response.status, errorData);
-        alert(`Failed to export match: ${response.status} - ${errorData}`);
+        showAlert(`Failed to export match: ${response.status} - ${errorData}`, 'error');
       }
     } catch (err) {
       console.error('Network error:', err);
-      alert('Network error: ' + err.message);
+      showAlert('Network error: ' + err.message, 'error');
     }
   }
 
@@ -559,17 +583,19 @@ export default function HomePage() {
     try {
       const response = await fetch(`/api/matches/${matchId}`, { method: 'DELETE' });
       if (response.ok) {
+        // Clear cache to ensure fresh data
+        clearMatchesCache();
         setMatches(prev => prev.filter(m => m.id !== matchId));
         setModalState('none');
         setDeleteConfirmMatch(null);
       } else {
         const errorData = await response.text();
         console.error('Server error:', response.status, errorData);
-        alert(`Failed to delete match: ${response.status} - ${errorData}`);
+        showAlert(`Failed to delete match: ${response.status} - ${errorData}`, 'error');
       }
     } catch (err) {
       console.error('Network error:', err);
-      alert('Network error: ' + err.message);
+      showAlert('Network error: ' + err.message, 'error');
     }
   }
 
@@ -616,6 +642,11 @@ export default function HomePage() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3"></div>
                   <span className="text-blue-200">Loading matches...</span>
                 </div>
+              ) : isRefreshing ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mr-3"></div>
+                  <span className="text-green-200">Updating matches...</span>
+                </div>
               ) : errorMessage ? (
                 <div className="flex flex-col items-center justify-center py-16 px-4">
                   <div className="text-red-400 text-6xl mb-4">⚠️</div>
@@ -624,11 +655,14 @@ export default function HomePage() {
                   <button
                     onClick={() => {
                       setErrorMessage('');
-                      // Reload matches data using global cache
+                      // Reload matches data after clearing cache
                       const loadMatchesData = async () => {
                         try {
-                          setIsLoading(true);
+                          setIsRefreshing(true);
                           setErrorMessage('');
+                          
+                          // Clear cache to force fresh data
+                          clearMatchesCache();
                           
                           // Get current team from localStorage
                           const latestTeam = localStorage.getItem('latestTeam');
@@ -646,7 +680,7 @@ export default function HomePage() {
                           setErrorMessage('Failed to load matches');
                           setMatches([]);
                         } finally {
-                          setIsLoading(false);
+                          setIsRefreshing(false);
                         }
                       };
                       
@@ -723,7 +757,7 @@ export default function HomePage() {
                             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                               {Array.isArray(team.banning_phase1)
                                 ? team.banning_phase1.map(heroName => {
-                                    const hero = heroList.find(h => h.name === heroName);
+                                    const hero = heroMap.get(heroName);
                                     return hero ? (
                                       <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                         <OptimizedBanHeroIcon heroName={heroName} />
@@ -739,7 +773,7 @@ export default function HomePage() {
                               {Array.isArray(team.picks1)
                                 ? team.picks1.map(pickObj => {
                                     const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
-                                    const hero = heroList.find(h => h.name === heroName);
+                                    const hero = heroMap.get(heroName);
                                     return hero ? (
                                       <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                         <OptimizedHeroImage heroName={heroName} size={56} />
@@ -754,7 +788,7 @@ export default function HomePage() {
                             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                               {Array.isArray(team.banning_phase2)
                                 ? team.banning_phase2.map(heroName => {
-                                    const hero = heroList.find(h => h.name === heroName);
+                                    const hero = heroMap.get(heroName);
                                     return hero ? (
                                       <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                         <OptimizedBanHeroIcon heroName={heroName} />
@@ -770,7 +804,7 @@ export default function HomePage() {
                               {Array.isArray(team.picks2)
                                 ? team.picks2.map(pickObj => {
                                     const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
-                                    const hero = heroList.find(h => h.name === heroName);
+                                    const hero = heroMap.get(heroName);
                                     return hero ? (
                                       <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                         <OptimizedHeroImage heroName={heroName} size={56} />
@@ -1206,8 +1240,8 @@ export default function HomePage() {
         const redTeam = match.teams.find(t => t.team_color === 'red');
         // Helper to get hero image
         const getHeroImg = (heroName) => {
-          const hero = heroList.find(h => h.name === heroName);
-          return hero ? `/heroes/${hero.role}/${hero.image}` : null;
+          const hero = heroMap.get(heroName);
+          return hero ? `/heroes/${hero.role}/${hero.image.replace('.png', '.webp')}` : null;
         };
         // Combine bans (max 5)
         const getBans = (team) => {
@@ -1327,6 +1361,14 @@ export default function HomePage() {
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
         user={currentUser}
+      />
+      
+      {/* Alert Modal */}
+      <AlertModal 
+        isOpen={showAlertModal}
+        onClose={() => setShowAlertModal(false)}
+        message={alertMessage}
+        type={alertType}
       />
     </div>
   );
@@ -1519,7 +1561,7 @@ function HeroPickerModal({ open, onClose, selected, setSelected, maxSelect = 1, 
                   style={!isUnavailable ? { background: 'linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%)' } : {}}
                 >
                   <HeroImage
-                    src={`/heroes/${hero.role}/${hero.image}`}
+                    src={`/heroes/${hero.role}/${hero.image.replace('.png', '.webp')}`}
                     alt={hero.name}
                   />
                   {isBanned && (
@@ -1754,6 +1796,53 @@ function ProfileModal({ isOpen, onClose, user }) {
           </div>
 
 
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Alert Modal Component
+function AlertModal({ isOpen, onClose, message, type = 'success' }) {
+  if (!isOpen) return null;
+
+  const isSuccess = type === 'success';
+  const icon = isSuccess ? '✅' : '⚠️';
+  const title = isSuccess ? 'Success' : 'Error';
+  const bgColor = isSuccess ? 'bg-green-600' : 'bg-red-600';
+  const borderColor = isSuccess ? 'border-green-500' : 'border-red-500';
+  const textColor = isSuccess ? 'text-green-200' : 'text-red-200';
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
+      <div className={`bg-gray-900 rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 border ${borderColor}`}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <span className="text-2xl mr-3">{icon}</span>
+            <h2 className={`text-xl font-bold ${textColor}`}>{title}</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white text-2xl font-bold transition-colors"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="mb-6">
+          <p className="text-white text-center leading-relaxed">{message}</p>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className={`px-6 py-2 rounded-lg font-semibold text-white transition-colors ${bgColor} hover:opacity-90`}
+          >
+            OK
+          </button>
         </div>
       </div>
     </div>

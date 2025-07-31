@@ -16,11 +16,25 @@ class NotesController extends Controller
      */
     public function index(): JsonResponse
     {
-        $notes = Auth::user()->notes()->orderBy('created_at', 'desc')->get();
+        // For now, get all notes since we're not using authentication
+        $notes = Note::orderBy('created_at', 'desc')->get();
+        
+        // Transform the notes to include the formatted date
+        $notesWithFormattedDate = $notes->map(function ($note) {
+            return [
+                'id' => $note->id,
+                'user_id' => $note->user_id,
+                'title' => $note->title,
+                'content' => $note->content,
+                'created_at' => $note->created_at,
+                'updated_at' => $note->updated_at,
+                'date_formatted' => $note->date_formatted
+            ];
+        });
         
         return response()->json([
             'success' => true,
-            'data' => $notes
+            'data' => $notesWithFormattedDate
         ]);
     }
 
@@ -35,9 +49,11 @@ class NotesController extends Controller
                 'content' => 'required|string',
             ]);
 
-            $note = Auth::user()->notes()->create([
+            // For now, create note without user_id since we're not using authentication
+            $note = Note::create([
                 'title' => $validated['title'],
                 'content' => $validated['content'],
+                'user_id' => 1, // Default user ID
             ]);
 
             return response()->json([
@@ -65,14 +81,6 @@ class NotesController extends Controller
      */
     public function update(Request $request, Note $note): JsonResponse
     {
-        // Check if the note belongs to the authenticated user
-        if ($note->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 403);
-        }
-
         try {
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
@@ -109,14 +117,6 @@ class NotesController extends Controller
      */
     public function destroy(Note $note): JsonResponse
     {
-        // Check if the note belongs to the authenticated user
-        if ($note->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized'
-            ], 403);
-        }
-
         try {
             $note->delete();
 
