@@ -83,8 +83,6 @@ export const getHeroData = async () => {
 
 // Global function to get matches data with caching
 export const getMatchesData = async (teamId = null) => {
-  const cacheKey = teamId || 'all';
-  
   // If we have cached data for this team and it's less than 2 minutes old, return it
   if (matchesCache.data && matchesCache.timestamp && matchesCache.teamId === teamId && (Date.now() - matchesCache.timestamp) < 2 * 60 * 1000) {
     console.log('Returning cached matches data for team:', teamId);

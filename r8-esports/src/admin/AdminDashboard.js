@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import mobaImg from '../assets/moba1.png';
 import navbarBg from '../assets/navbarbackground.jpg';
-import { FaUsers, FaTrash, FaPlus, FaSignOutAlt, FaChartBar, FaCog } from 'react-icons/fa';
+// import { FaUsers, FaTrash, FaPlus, FaSignOutAlt, FaChartBar, FaCog } from 'react-icons/fa';
 import PageTitle from '../components/PageTitle';
 import useSessionTimeout from '../hooks/useSessionTimeout';
 

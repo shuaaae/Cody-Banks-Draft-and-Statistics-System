@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import mobaImg from '../assets/moba1.png';
 import mainBg from '../assets/mainbg.jpg';
 import PageTitle from '../components/PageTitle';
 

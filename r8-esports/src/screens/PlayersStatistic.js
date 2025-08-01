@@ -1,220 +1,25 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
-import defaultPlayer from '../assets/default.png';
-import expIcon from '../assets/exp.png';
-import midIcon from '../assets/mid.png';
-import junglerIcon from '../assets/jungle.png';
-import goldIcon from '../assets/gold.png';
-import roamIcon from '../assets/roam.png';
-import expBg from '../assets/expbg.jpg';
-import midBg from '../assets/midbg.jpg';
-import roamBg from '../assets/roambg.jpg';
-import goldBg from '../assets/goldbg.jpg';
-import jungleBg from '../assets/junglebg.jpg';
-import { Bar } from 'react-chartjs-2';
+import defaultPlayer from '../assets/default.png'; import { Bar } from 'react-chartjs-2';
 import { Chart, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip } from 'chart.js';
-import { FaUsers, FaChartLine } from 'react-icons/fa';
-import { FaHome, FaDraftingCompass, FaUserFriends, FaChartBar, FaSignOutAlt } from 'react-icons/fa';
 import PageTitle from '../components/PageTitle';
 import Header from '../components/Header';
+import ProfileModal from '../components/ProfileModal';
 import useSessionTimeout from '../hooks/useSessionTimeout';
+import {
+  PlayerCard,
+  TeamDisplayCard,
+  PlayerModal,
+  PerformanceModal,
+  ConfirmUploadModal,
+  PlayerGrid,
+  LANES,
+  PLAYER,
+  scrollbarHideStyles
+} from '../components/PlayersStatistic';
 
 Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip);
-
-// Custom CSS for hiding scrollbars
-const scrollbarHideStyles = `
-  .scrollbar-hide {
-    -ms-overflow-style: none;  /* Internet Explorer 10+ */
-    scrollbar-width: none;  /* Firefox */
-  }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;  /* Safari and Chrome */
-  }
-`;
-
-// PlayerCard must be placed BEFORE PlayersStatistic
-const PlayerCard = ({ lane, player, hero, highlight, onClick, getPlayerPhoto }) => {
-  const playerPhoto = getPlayerPhoto ? getPlayerPhoto(player.name) : (player.photo ? player.photo : defaultPlayer);
-  
-
-  
-  return (
-    <button
-      type="button"
-      className="group relative flex items-center shadow-lg transition-all duration-300 overflow-hidden w-[520px] h-[150px] p-0 cursor-pointer focus:outline-none hover:shadow-2xl hover:scale-105 hover:border-l-4 hover:border-blue-500"
-      style={{ 
-        borderRadius: '12px 12px 12px 0px', 
-        minWidth: 0, 
-        border: 'none',
-        background: (lane.key === 'exp' || lane.key === 'mid' || lane.key === 'roam' || lane.key === 'gold' || lane.key === 'jungler') ? 'transparent' : '#111216'
-      }}
-      onMouseEnter={(e) => {
-        if (lane.key === 'exp') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="exp"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${expBg}) center/cover`;
-          }
-        } else if (lane.key === 'mid') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="mid"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${midBg}) center/cover`;
-          }
-        } else if (lane.key === 'roam') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="roam"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${roamBg}) center/cover`;
-          }
-        } else if (lane.key === 'gold') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="gold"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${goldBg}) center/cover`;
-          }
-        } else if (lane.key === 'jungler') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="jungler"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${jungleBg}) center/cover`;
-          }
-        } else {
-          e.target.style.background = '#1a1d2a';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (lane.key === 'exp') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="exp"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${expBg}) center/cover`;
-          }
-        } else if (lane.key === 'mid') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="mid"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${midBg}) center/cover`;
-          }
-        } else if (lane.key === 'roam') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="roam"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${roamBg}) center/cover`;
-          }
-        } else if (lane.key === 'gold') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="gold"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${goldBg}) center/cover`;
-          }
-        } else if (lane.key === 'jungler') {
-          const bgDiv = e.currentTarget.querySelector('div[data-lane="jungler"]');
-          if (bgDiv) {
-            bgDiv.style.background = `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${jungleBg}) center/cover`;
-          }
-        } else {
-          e.target.style.background = '#111216';
-        }
-      }}
-      onClick={onClick}
-    >
-      {/* Background image for exp, mid, roam, gold, and jungle lanes - positioned at the very back */}
-      {lane.key === 'exp' && (
-        <div 
-          className="absolute inset-0 z-0"
-          style={{
-            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${expBg}) center/cover`,
-            borderRadius: '12px 12px 12px 0px'
-          }}
-          title="Exp lane background"
-          data-lane="exp"
-        />
-      )}
-      {lane.key === 'mid' && (
-        <div 
-          className="absolute inset-0 z-0"
-          style={{
-            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${midBg}) center/cover`,
-            borderRadius: '12px 12px 12px 0px'
-          }}
-          title="Mid lane background"
-          data-lane="mid"
-        />
-      )}
-      {lane.key === 'roam' && (
-        <div 
-          className="absolute inset-0 z-0"
-          style={{
-            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${roamBg}) center/cover`,
-            borderRadius: '12px 12px 12px 0px'
-          }}
-          title="Roam lane background"
-          data-lane="roam"
-        />
-      )}
-      {lane.key === 'gold' && (
-        <div 
-          className="absolute inset-0 z-0"
-          style={{
-            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${goldBg}) center/cover`,
-            borderRadius: '12px 12px 12px 0px'
-          }}
-          title="Gold lane background"
-          data-lane="gold"
-        />
-      )}
-      {lane.key === 'jungler' && (
-        <div 
-          className="absolute inset-0 z-0"
-          style={{
-            background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${jungleBg}) center/cover`,
-            borderRadius: '12px 12px 12px 0px'
-          }}
-          title="Jungle lane background"
-          data-lane="jungler"
-        />
-      )}
-      <div className="relative flex-shrink-0 z-20" style={{ width: 140, height: 160, marginLeft: -30 }}>
-        <img
-          src={playerPhoto}
-          alt="Player"
-          className="absolute bottom-0 w-[140px] h-[160px] object-cover rounded-xl z-10 transition-all duration-300 group-hover:scale-110 group-hover:shadow-2xl"
-          style={{ 
-            objectPosition: 'center',
-            left: '60%',
-            transform: 'translateX(-50%)'
-          }}
-          onError={(e) => {
-            console.error(`Failed to load image: ${playerPhoto}`);
-            e.target.src = defaultPlayer;
-          }}
-          onLoad={() => {
-            console.log(`Image loaded successfully: ${playerPhoto}`);
-          }}
-        />
-      </div>
-      <div className="flex-1 ml-8 min-w-0 flex flex-col justify-center z-30">
-        <div className="flex flex-row items-center justify-between w-full">
-          <div className="text-white text-[1.35rem] font-bold tracking-wide truncate leading-tight">{player.name}</div>
-          <div className="flex flex-col items-end ml-4 min-w-[90px] mr-8">
-            <img 
-              src={lane.icon} 
-              alt={lane.label} 
-              className="w-20 h-20 object-contain mb-1 transition-all duration-300 group-hover:scale-110 group-hover:drop-shadow-lg" 
-            />
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-};
-
-const LANES = [
-  { key: 'exp', label: 'EXPLANE', icon: expIcon },
-  { key: 'mid', label: 'MIDLANER', icon: midIcon },
-  { key: 'jungler', label: 'JUNGLER', icon: junglerIcon },
-  { key: 'gold', label: 'GOLD LANE', icon: goldIcon },
-  { key: 'roam', label: 'ROAMER', icon: roamIcon },
-];
-
-const PLAYER = {
-  name: 'Player',
-  photo: defaultPlayer,
-                // teamLogo removed
-};
 
 function PlayersStatistic() {
   const navigate = useNavigate();
@@ -235,6 +40,7 @@ function PlayersStatistic() {
   const [imageCache, setImageCache] = useState({}); // cache for player images
   const [currentTeamId, setCurrentTeamId] = useState(null); // track current team ID
   const statsFetchingRef = useRef(false);
+  const [isLoadingTeam, setIsLoadingTeam] = useState(true); // Add loading state for team
   // User avatar state
   const [currentUser, setCurrentUser] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false); // Add profile modal state
@@ -251,8 +57,6 @@ function PlayersStatistic() {
     }
     setCurrentUser(user);
   }, [navigate]);
-
-
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser');
@@ -304,10 +108,13 @@ function PlayersStatistic() {
 
   // Preload and cache player images
   const preloadPlayerImages = useCallback(async (teamPlayers) => {
-    if (!teamPlayers || !teamPlayers.players) return;
+    if (!teamPlayers) return;
+    
+    const playersArray = teamPlayers.players_data || teamPlayers.players;
+    if (!playersArray) return;
     
     const newImageCache = { ...imageCache };
-    const imagePromises = teamPlayers.players.map(async (player) => {
+    const imagePromises = playersArray.map(async (player) => {
       if (!player.name) return;
       
       const playerIdentifier = getPlayerIdentifier(player.name, player.role);
@@ -361,43 +168,77 @@ function PlayersStatistic() {
     }
 
     const loadTeamData = async () => {
+      setIsLoadingTeam(true);
+      
+      // Add timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        setIsLoadingTeam(false);
+      }, 5000); // 5 second timeout
+      
       try {
-        // First try to get team data from localStorage
+        // First try to get team data from localStorage for immediate display
         const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
-        console.log('Latest team from localStorage:', latestTeam);
         
         if (latestTeam && latestTeam.teamName) {
-          // Fetch fresh team data from backend to ensure we have the latest
-          const response = await fetch(`/api/teams/active`);
-          if (response.ok) {
-            const activeTeam = await response.json();
-            console.log('Active team from API:', activeTeam);
-            
-            // Update localStorage with fresh data
-            const updatedTeamData = {
-              teamName: activeTeam.name,
-              players: activeTeam.players_data || [],
-              id: activeTeam.id
-            };
-            
-            console.log('Updated team data:', updatedTeamData);
-            localStorage.setItem('latestTeam', JSON.stringify(updatedTeamData));
-            setTeamPlayers(updatedTeamData);
-            setCurrentTeamId(activeTeam.id);
-          } else {
-            console.log('API response not ok, using localStorage data');
-            // Fallback to localStorage data
-            setTeamPlayers(latestTeam);
+          // Set team data immediately from localStorage for fast display
+          setTeamPlayers(latestTeam);
+          setCurrentTeamId(latestTeam.id);
+          
+          // Then fetch fresh data from backend in background
+          try {
+            const response = await fetch(`/api/teams/active`);
+            if (response.ok) {
+              const activeTeam = await response.json();
+              
+              // Update localStorage with fresh data
+              const updatedTeamData = {
+                teamName: activeTeam.name,
+                players_data: activeTeam.players_data || activeTeam.players || [],
+                id: activeTeam.id
+              };
+              
+              localStorage.setItem('latestTeam', JSON.stringify(updatedTeamData));
+              setTeamPlayers(updatedTeamData);
+              setCurrentTeamId(activeTeam.id);
+              
+              // Preload player images for the team
+              preloadPlayerImages(updatedTeamData);
+            }
+          } catch (error) {
+            console.error('Error fetching fresh team data:', error);
+            // Keep using localStorage data if API fails
           }
         } else {
-          console.log('No latestTeam in localStorage');
-          setTeamPlayers(null);
+          // Try to fetch active team from API
+          try {
+            const response = await fetch(`/api/teams/active`);
+            if (response.ok) {
+              const activeTeam = await response.json();
+              const teamData = {
+                teamName: activeTeam.name,
+                players_data: activeTeam.players_data || activeTeam.players || [],
+                id: activeTeam.id
+              };
+              localStorage.setItem('latestTeam', JSON.stringify(teamData));
+              setTeamPlayers(teamData);
+              setCurrentTeamId(activeTeam.id);
+              preloadPlayerImages(teamData);
+            } else {
+              setTeamPlayers(null);
+            }
+          } catch (error) {
+            console.error('Error fetching active team:', error);
+            setTeamPlayers(null);
+          }
         }
       } catch (error) {
         console.error('Error loading team data:', error);
         // Fallback to localStorage data
         const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
         setTeamPlayers(latestTeam || null);
+      } finally {
+        clearTimeout(timeoutId);
+        setIsLoadingTeam(false);
       }
     };
 
@@ -412,6 +253,7 @@ function PlayersStatistic() {
         console.log('Team change detected:', currentTeamId, '->', latestTeam.id);
         setCurrentTeamId(latestTeam.id);
         setTeamPlayers(latestTeam);
+        preloadPlayerImages(latestTeam);
       }
     };
 
@@ -502,7 +344,8 @@ function PlayersStatistic() {
 
   // Pre-fetch all player stats and H2H stats for the current team
   useEffect(() => {
-    if (teamPlayers && teamPlayers.players && teamPlayers.teamName) {
+    const playersArray = teamPlayers?.players_data || teamPlayers?.players;
+    if (teamPlayers && playersArray && teamPlayers.teamName) {
       // Prevent multiple simultaneous fetches
       if (isLoadingStats || statsFetchingRef.current) return;
       
@@ -516,7 +359,7 @@ function PlayersStatistic() {
           const h2hStatsObj = {};
           
           await Promise.all(
-            teamPlayers.players.map(async (p) => {
+            playersArray.map(async (p) => {
               if (!p.name || !p.role) return;
               
               const playerIdentifier = getPlayerIdentifier(p.name, p.role);
@@ -561,18 +404,14 @@ function PlayersStatistic() {
     } else {
       setLanePlayers(null);
     }
-
-    const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
-    if (latestTeam && latestTeam.players) {
-      setTeamPlayers(latestTeam);
-    } else {
-      setTeamPlayers(null);
-    }
-  }, []);
+  }, [isLoadingStats]);
 
   const getCurrentTeamName = useCallback(() => {
+    if (isLoadingTeam) {
+      return 'Loading Team...';
+    }
     return teamPlayers && teamPlayers.teamName ? teamPlayers.teamName : 'Unknown Team';
-  }, [teamPlayers]);
+  }, [teamPlayers, isLoadingTeam]);
 
   // Use cached stats for modal - instant display
   useEffect(() => {
@@ -686,29 +525,92 @@ function PlayersStatistic() {
     }
   }, [modalInfo, allPlayerStats, allPlayerH2HStats, getCurrentTeamName]);
 
+  // Utility functions
   function getPlayerNameForLane(laneKey, laneIdx) {
-    if (!teamPlayers || !teamPlayers.players) {
-      console.log('No teamPlayers or players data:', { teamPlayers });
+    // Show loading state while team is being loaded
+    if (isLoadingTeam) {
+      return 'Loading...';
+    }
+    
+    // Remove excessive logging to prevent infinite loops
+    if (!teamPlayers) {
       return `Player ${laneIdx + 1}`;
     }
     
-    console.log('Looking for lane:', laneKey, 'in players:', teamPlayers.players);
+    // Check for both players_data and players properties
+    const playersArray = teamPlayers.players_data || teamPlayers.players;
     
-    const found = teamPlayers.players.find(
-      p => p.role && p.role.toLowerCase().includes(laneKey)
+    if (!playersArray || !Array.isArray(playersArray)) {
+      return `Player ${laneIdx + 1}`;
+    }
+    
+    // For 6 players, use index-based assignment for proper role mapping
+    if (playersArray.length === 6) {
+      // Map players by index: 0=exp, 1=mid, 2=jungler, 3=gold, 4=roam, 5=substitute
+      const indexMapping = {
+        0: 'exp',    // 1st player = exp
+        1: 'mid',    // 2nd player = mid
+        2: 'jungler', // 3rd player = jungler
+        3: 'gold',   // 4th player = gold
+        4: 'roam',   // 5th player = roam
+        5: 'sub'     // 6th player = substitute
+      };
+      
+      // Check if the requested lane matches the index mapping
+      if (indexMapping[laneIdx] === laneKey) {
+        if (playersArray[laneIdx] && playersArray[laneIdx].name) {
+          return playersArray[laneIdx].name;
+        }
+      }
+      
+      // If no match found, return the player at that index anyway
+      if (playersArray[laneIdx] && playersArray[laneIdx].name) {
+        return playersArray[laneIdx].name;
+      }
+      
+      return `Player ${laneIdx + 1}`;
+    }
+    
+    // For 5 or fewer players, use the original role-based logic
+    // First try exact role match
+    let found = playersArray.find(
+      p => p.role && p.role.toLowerCase() === laneKey.toLowerCase()
     );
     
+    // If no exact match, try partial match
+    if (!found) {
+      found = playersArray.find(
+        p => p.role && p.role.toLowerCase().includes(laneKey.toLowerCase())
+      );
+    }
+    
+    // If still no match, try common role variations
+    if (!found) {
+      const roleVariations = {
+        'exp': ['exp', 'explainer', 'explane', 'exp lane'],
+        'mid': ['mid', 'midlaner', 'mid lane'],
+        'jungler': ['jungler', 'jungle', 'jungle lane'],
+        'gold': ['gold', 'goldlaner', 'gold lane', 'marksman'],
+        'roam': ['roam', 'roamer', 'roam lane', 'support']
+      };
+      
+      const variations = roleVariations[laneKey] || [laneKey];
+      found = playersArray.find(
+        p => p.role && variations.some(variation => 
+          p.role.toLowerCase().includes(variation.toLowerCase())
+        )
+      );
+    }
+    
     if (found && found.name) {
-      console.log('Found player for lane', laneKey, ':', found.name);
       return found.name;
     }
     
-    if (teamPlayers.players[laneIdx] && teamPlayers.players[laneIdx].name) {
-      console.log('Using player at index', laneIdx, ':', teamPlayers.players[laneIdx].name);
-      return teamPlayers.players[laneIdx].name;
+    // Fallback to index-based lookup
+    if (playersArray[laneIdx] && playersArray[laneIdx].name) {
+      return playersArray[laneIdx].name;
     }
     
-    console.log('No player found for lane', laneKey, ', returning default');
     return `Player ${laneIdx + 1}`;
   }
 
@@ -724,7 +626,8 @@ function PlayersStatistic() {
       'mid': 'mid', 
       'jungler': 'jungler',
       'gold': 'gold',
-      'roam': 'roam'
+      'roam': 'roam',
+      'sub': 'substitute'
     };
     return roleMap[laneKey] || laneKey;
   }
@@ -737,6 +640,7 @@ function PlayersStatistic() {
     return found ? found.hero : null;
   }
 
+  // Event handlers
   function handleFileSelect(e, playerName, playerRole) {
     const file = e.target.files[0];
     if (!file || !playerName) return;
@@ -793,18 +697,24 @@ function PlayersStatistic() {
             return [...prev, { ...data.player, photo: data.photo_path }];
           }
         });
-        setTeamPlayers(prev => {
-          if (!prev || !prev.players) return prev;
-          return {
-            ...prev,
-            players: prev.players.map(p =>
-              (p.name === pendingPhoto.playerName && 
-               (pendingPhoto.playerRole === null ? p.role === null : p.role === pendingPhoto.playerRole)) 
-                ? { ...p, photo: data.photo_path } 
-                : p
-            )
-          };
-        });
+                 setTeamPlayers(prev => {
+           if (!prev) return prev;
+           const playersArray = prev.players_data || prev.players;
+           if (!playersArray) return prev;
+           
+           const updatedPlayers = playersArray.map(p =>
+             (p.name === pendingPhoto.playerName && 
+              (pendingPhoto.playerRole === null ? p.role === null : p.role === pendingPhoto.playerRole)) 
+               ? { ...p, photo: data.photo_path } 
+               : p
+           );
+           
+           return {
+             ...prev,
+             players_data: updatedPlayers,
+             players: updatedPlayers
+           };
+         });
       } else {
         alert('Failed to upload photo');
       }
@@ -891,496 +801,79 @@ function PlayersStatistic() {
       <PageTitle title="Players Statistic" />
       <style>{scrollbarHideStyles}</style>
       
-            {/* Header Component */}
+      {/* Header Component */}
       <Header 
         currentUser={currentUser}
         onLogout={handleLogout}
         onShowProfile={() => setShowProfileModal(true)}
       />
 
-      {/* Main Content */}
+            {/* Main Content */}
       <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center flex-1" style={{ marginTop: -130 }}>
-        {/* Modern Gaming Team Display Card */}
-        <div className="relative group mb-8">
-          <div 
-            className="flex items-center bg-black hover:bg-gray-900 rounded-xl px-6 py-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20"
-            style={{ borderRadius: '12px' }}
-          >
-            <div className="flex items-center space-x-4">
-              {/* Modern Gaming Team Icon */}
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-                <FaUsers className="w-6 h-6 text-white" />
-              </div>
-              
-              {/* Team Info */}
-              <div className="flex flex-col">
-                <span className="text-gray-300 text-sm font-medium tracking-wide">CURRENT TEAM</span>
-                <span className="text-blue-200 font-bold text-2xl tracking-wide">{getCurrentTeamName()}</span>
-              </div>
-              
-              {/* Modern Gaming Stats Icon */}
-              <div className="ml-4 text-blue-300 group-hover:text-blue-200 transition-colors duration-200">
-                <FaChartLine className="w-6 h-6" />
-              </div>
-            </div>
+        {/* Team Display Card */}
+        <TeamDisplayCard teamName={getCurrentTeamName()} />
+        
+        {/* Loading Spinner */}
+        {isLoadingTeam && (
+          <div className="flex flex-col items-center justify-center mb-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+            <p className="text-white text-lg">Loading team data...</p>
           </div>
-          
-          {/* Hover Effect Border */}
-          <div className="absolute inset-0 rounded-xl border-2 border-transparent group-hover:border-blue-400/50 transition-all duration-300 pointer-events-none" style={{ borderRadius: '12px' }}></div>
-        </div>
-        <div className="w-full flex flex-col items-center mt-12 space-y-4">
-          <div className="flex flex-row justify-center gap-x-8 w-full">
-            {(() => {
-              const playerName = getPlayerNameForLane('exp', 0);
-              const playerRole = getRoleByLaneKey('exp');
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
-              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
-              return (
-                <PlayerCard lane={LANES[0]} player={playerObj} hero={getHeroForLaneByLaneKey('exp', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[0], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('exp', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
-              );
-            })()}
-            {(() => {
-              const playerName = getPlayerNameForLane('mid', 1);
-              const playerRole = getRoleByLaneKey('mid');
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
-              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
-              return (
-                <PlayerCard lane={LANES[1]} player={playerObj} hero={getHeroForLaneByLaneKey('mid', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[1], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('mid', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
-              );
-            })()}
-          </div>
-          <div className="flex flex-row justify-center w-full">
-            {(() => {
-              const playerName = getPlayerNameForLane('jungler', 2);
-              const playerRole = getRoleByLaneKey('jungler');
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
-              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
-              return (
-                <PlayerCard lane={LANES[2]} player={playerObj} hero={getHeroForLaneByLaneKey('jungler', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[2], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('jungler', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
-              );
-            })()}
-          </div>
-          <div className="flex flex-row justify-center gap-x-8 w-full">
-            {(() => {
-              const playerName = getPlayerNameForLane('gold', 3);
-              const playerRole = getRoleByLaneKey('gold');
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
-              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
-              return (
-                <PlayerCard lane={LANES[3]} player={playerObj} hero={getHeroForLaneByLaneKey('gold', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[3], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('gold', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
-              );
-            })()}
-            {(() => {
-              const playerName = getPlayerNameForLane('roam', 4);
-              const playerRole = getRoleByLaneKey('roam');
-              const playerObj = players.find(p => p.name === playerName) || { ...PLAYER, name: playerName, role: playerRole };
-              const playerIdentifier = getPlayerIdentifier(playerName, playerRole);
-              return (
-                <PlayerCard lane={LANES[4]} player={playerObj} hero={getHeroForLaneByLaneKey('roam', lanePlayers)} onClick={() => setModalInfo({ lane: LANES[4], player: { ...playerObj, role: playerRole, identifier: playerIdentifier }, hero: getHeroForLaneByLaneKey('roam', lanePlayers) })} getPlayerPhoto={(name) => getPlayerPhoto(name, playerRole)} />
-              );
-            })()}
-          </div>
-        </div>
+        )}
+        
+        {/* Player Grid */}
+        {!isLoadingTeam && (
+          <PlayerGrid
+            teamPlayers={teamPlayers}
+            players={players}
+            lanePlayers={lanePlayers}
+            LANES={LANES}
+            PLAYER={PLAYER}
+            getPlayerNameForLane={getPlayerNameForLane}
+            getRoleByLaneKey={getRoleByLaneKey}
+            getHeroForLaneByLaneKey={getHeroForLaneByLaneKey}
+            getPlayerIdentifier={getPlayerIdentifier}
+            getPlayerPhoto={getPlayerPhoto}
+            onPlayerClick={setModalInfo}
+          />
+        )}
       </div>
 
-      {/* Player modal */}
-      {modalInfo && !showConfirmModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 animate-fadeIn"
-          onClick={() => setModalInfo(null)}
-        >
-          <div 
-            className="bg-[#23232a] rounded-2xl shadow-2xl p-6 min-w-[600px] max-w-[90vw] relative flex flex-col animate-slideIn" 
-            style={{ width: '700px' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button className="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl font-bold" onClick={() => setModalInfo(null)}>&times;</button>
-            {/* Player Profile Header */}
-            <div className="flex items-center justify-center mb-6">
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef}
-                style={{ display: 'none' }}
-                onChange={e => handleFileSelect(e, modalInfo.player.name, modalInfo.player.role)}
-              />
-              <img
-                src={getPlayerPhoto(modalInfo.player.name, modalInfo.player.role)}
-                alt="Player"
-                className="w-16 h-16 object-cover mr-4 rounded-full cursor-pointer"
-                onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                title="Click to upload new photo"
-                style={{ opacity: uploadingPlayer === modalInfo.player.name ? 0.5 : 1, objectPosition: 'center' }}
-              />
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-3 mb-2">
-                  <div className="text-white text-xl font-bold">{modalInfo.player.name}</div>
-                  <img src={modalInfo.lane.icon} alt={modalInfo.lane.label} className="w-12 h-12 object-contain" />
-                </div>
-                {uploadingPlayer === modalInfo.player.name && <div className="text-blue-300 text-xs mt-1">Uploading...</div>}
-              </div>
-            </div>
-            
-
-            
-            {/* Hero stats table */}
-            <div className="w-full">
-              <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE (Scrim)</div>
-              {isLoadingStats ? (
-                <div className="text-center py-4">
-                  <div className="text-blue-300 flex items-center justify-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-300"></div>
-                    <span className="text-sm">Loading stats...</span>
-                  </div>
-                </div>
-              ) : heroStats.length > 0 ? (
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="text-left px-2 py-1">Hero</th>
-                      <th className="text-green-500 px-2 py-1">WIN</th>
-                      <th className="text-red-500 px-2 py-1">LOSE</th>
-                      <th className="px-2 py-1">TOTAL</th>
-                      <th className="text-yellow-400 px-2 py-1">Success rate</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {heroStats.map((row, idx) => (
-                      <tr key={row.hero + idx}>
-                        <td className="px-2 py-1 text-white font-semibold">{row.hero}</td>
-                        <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
-                        <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
-                        <td className="px-2 py-1 text-center">{row.total}</td>
-                        <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-gray-400">No hero stats available.</div>
-              )}
-            </div>
-            
-            {/* H2H stats table */}
-            <div className="mt-8 w-full">
-              <div className="text-yellow-300 font-bold mb-2">PLAYER'S HERO SUCCESS RATE vs ENEMY (H2H)</div>
-              {isLoadingStats ? (
-                <div className="text-center py-4">
-                  <div className="text-blue-300 flex items-center justify-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-300"></div>
-                    <span className="text-sm">Loading stats...</span>
-                  </div>
-                </div>
-              ) : heroH2HStats.length > 0 ? (
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="text-left px-2 py-1">Hero Used</th>
-                      <th className="text-left px-2 py-1">Enemy</th>
-                      <th className="text-green-500 px-2 py-1">WIN</th>
-                      <th className="text-red-500 px-2 py-1">LOSE</th>
-                      <th className="px-2 py-1">TOTAL</th>
-                      <th className="text-yellow-400 px-2 py-1">Success rate</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {heroH2HStats.map((row, idx) => (
-                      <tr key={row.player_hero + row.enemy_hero + idx}>
-                        <td className="px-2 py-1 text-white font-semibold">{row.player_hero}</td>
-                        <td className="px-2 py-1 text-blue-300 font-semibold">{row.enemy_hero}</td>
-                        <td className="px-2 py-1 text-green-400 text-center">{row.win}</td>
-                        <td className="px-2 py-1 text-red-400 text-center">{row.lose}</td>
-                        <td className="px-2 py-1 text-center">{row.total}</td>
-                        <td className="px-2 py-1 text-yellow-300 text-center">{row.winrate}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-gray-400">No H2H stats available.</div>
-              )}
-            </div>
-            
-
-            
-            <div className="text-gray-300 text-left mt-2">
-              {heroStats.length === 0 && (
-                'More player/lane/hero details can go here.'
-              )}
-            </div>
-            
-            {/* View Performance Button */}
-            <div className="mt-6 w-full flex justify-center">
-              <button
-                onClick={() => setShowPerformanceModal(true)}
-                className="px-8 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-lg transition-colors duration-200 shadow-lg"
-              >
-                View Performance
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Player Modal */}
+      <PlayerModal
+        modalInfo={modalInfo}
+        onClose={() => setModalInfo(null)}
+        getPlayerPhoto={getPlayerPhoto}
+        heroStats={heroStats}
+        heroH2HStats={heroH2HStats}
+        isLoadingStats={isLoadingStats}
+        onFileSelect={() => fileInputRef.current && fileInputRef.current.click()}
+        uploadingPlayer={uploadingPlayer}
+        onViewPerformance={() => setShowPerformanceModal(true)}
+      />
 
       {/* Performance Modal */}
-      {showPerformanceModal && modalInfo && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-90" style={{ pointerEvents: 'auto' }}>
-          <div className="bg-[#23232a] rounded-2xl shadow-2xl p-6 min-w-[1400px] max-w-[95vw] h-[800px] flex flex-col z-[10000]">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-white text-xl font-bold">{modalInfo.player.name} - Performance Analysis</h2>
-              <button 
-                className="text-gray-400 hover:text-white text-2xl font-bold" 
-                onClick={() => setShowPerformanceModal(false)}
-              >
-                &times;
-              </button>
-            </div>
-            
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
-              {/* Evaluation Forms Section - Now on top */}
-              <div className="w-full flex gap-4">
-                {/* Hero Evaluation */}
-                <div className="flex-1 bg-gray-800 p-3 rounded-lg">
-                  <div className="text-yellow-300 font-bold mb-2 text-sm">HERO EVALUATION</div>
-                  <div className="flex gap-2 mb-2">
-                    <div className="flex-1">
-                      <label className="text-white text-xs">Date:</label>
-                      <input
-                        type="text"
-                        value={heroEvaluation.date}
-                        onChange={(e) => handleHeroEvaluationTextChange('date', e.target.value)}
-                        className="w-full px-1 py-1 bg-gray-700 text-white rounded text-xs"
-                        placeholder="Date"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-white text-xs">Commitment:</label>
-                      <input
-                        type="text"
-                        value={heroEvaluation.commitment}
-                        onChange={(e) => handleHeroEvaluationTextChange('commitment', e.target.value)}
-                        className="w-full px-1 py-1 bg-gray-700 text-white rounded text-xs"
-                        placeholder="Commitment"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-white text-xs">Goal:</label>
-                      <input
-                        type="text"
-                        value={heroEvaluation.goal}
-                        onChange={(e) => handleHeroEvaluationTextChange('goal', e.target.value)}
-                        className="w-full px-1 py-1 bg-gray-700 text-white rounded text-xs"
-                        placeholder="Goal"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-1 mb-2">
-                    <div className="bg-black text-white text-center text-xs py-1 rounded">Black</div>
-                    <div className="bg-blue-600 text-white text-center text-xs py-1 rounded">Blue</div>
-                    <div className="bg-red-600 text-white text-center text-xs py-1 rounded">Red</div>
-                  </div>
-                  
-                  <div className="space-y-1 max-h-48 overflow-y-scroll scrollbar-hide">
-                    {Array.from({ length: 10 }).map((_, index) => (
-                      <div key={index} className="grid grid-cols-3 gap-1">
-                        <input
-                          type="text"
-                          value={heroEvaluation.blackHeroes[index]}
-                          onChange={(e) => handleHeroEvaluationChange('blackHeroes', index, e.target.value)}
-                          className="px-1 py-1 bg-black text-white rounded text-xs text-center"
-                          placeholder="Hero"
-                        />
-                        <input
-                          type="text"
-                          value={heroEvaluation.blueHeroes[index]}
-                          onChange={(e) => handleHeroEvaluationChange('blueHeroes', index, e.target.value)}
-                          className="px-1 py-1 bg-blue-600 text-white rounded text-xs text-center"
-                          placeholder="Hero"
-                        />
-                        <input
-                          type="text"
-                          value={heroEvaluation.redHeroes[index]}
-                          onChange={(e) => handleHeroEvaluationChange('redHeroes', index, e.target.value)}
-                          className="px-1 py-1 bg-red-600 text-white rounded text-xs text-center"
-                          placeholder="Hero"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Player Evaluation */}
-                <div className="flex-1 bg-gray-800 p-3 rounded-lg">
-                  <div className="text-yellow-300 font-bold mb-2 text-sm">PLAYER EVALUATION</div>
-                  <div className="flex gap-2 mb-2">
-                    <div className="w-1/4">
-                      <label className="text-white text-xs">Date:</label>
-                      <input
-                        type="text"
-                        value={playerEvaluation.date}
-                        onChange={(e) => handlePlayerEvaluationChange('date', e.target.value)}
-                        className="w-full px-1 py-1 bg-green-600 text-white rounded text-xs"
-                        placeholder="Date"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-white text-xs">Notes:</label>
-                      <textarea
-                        value={playerEvaluation.notes || ''}
-                        onChange={(e) => handlePlayerEvaluationChange('notes', e.target.value)}
-                        className="w-full px-1 py-1 bg-green-600 text-white rounded text-xs resize-none"
-                        placeholder="Notes"
-                        rows="2"
-                        style={{ height: 'auto', minHeight: '32px' }}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-5 gap-1 mb-2">
-                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">Quality</div>
-                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">1-4</div>
-                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">5-6</div>
-                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">7-8</div>
-                    <div className="bg-green-600 text-white text-center py-1 text-xs font-bold">9-10</div>
-                  </div>
-                  
-                  <div className="space-y-1 max-h-48 overflow-y-scroll scrollbar-hide">
-                    {Object.entries(playerEvaluation.qualities).slice(0, 10).map(([quality, rating], index) => (
-                      <div key={quality} className="grid grid-cols-5 gap-1">
-                        <div className="bg-green-200 text-black px-1 py-1 text-xs font-semibold truncate">{quality}</div>
-                        <button
-                          onClick={() => handleQualityRating(quality, '1-4')}
-                          className={`px-1 py-1 text-xs font-bold ${rating === '1-4' ? 'bg-green-500 text-white' : 'bg-white text-black'} rounded cursor-pointer hover:bg-green-300`}
-                        >
-                          {rating === '1-4' ? '✓' : ''}
-                        </button>
-                        <button
-                          onClick={() => handleQualityRating(quality, '5-6')}
-                          className={`px-1 py-1 text-xs font-bold ${rating === '5-6' ? 'bg-green-500 text-white' : 'bg-white text-black'} rounded cursor-pointer hover:bg-green-300`}
-                        >
-                          {rating === '5-6' ? '✓' : ''}
-                        </button>
-                        <button
-                          onClick={() => handleQualityRating(quality, '7-8')}
-                          className={`px-1 py-1 text-xs font-bold ${rating === '7-8' ? 'bg-green-500 text-white' : 'bg-white text-black'} rounded cursor-pointer hover:bg-green-300`}
-                        >
-                          {rating === '7-8' ? '✓' : ''}
-                        </button>
-                        <button
-                          onClick={() => handleQualityRating(quality, '9-10')}
-                          className={`px-1 py-1 text-xs font-bold ${rating === '9-10' ? 'bg-green-500 text-white' : 'bg-white text-black'} rounded cursor-pointer hover:bg-green-300`}
-                        >
-                          {rating === '9-10' ? '✓' : ''}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  
+      <PerformanceModal
+        isOpen={showPerformanceModal}
+        onClose={() => setShowPerformanceModal(false)}
+        modalInfo={modalInfo}
+        heroStats={heroStats}
+        heroEvaluation={heroEvaluation}
+        playerEvaluation={playerEvaluation}
+        onHeroEvaluationChange={handleHeroEvaluationChange}
+        onHeroEvaluationTextChange={handleHeroEvaluationTextChange}
+        onPlayerEvaluationChange={handlePlayerEvaluationChange}
+        onQualityRating={handleQualityRating}
+        onCommentChange={handleCommentChange}
+      />
 
-                </div>
-              </div>
-              
-              {/* Chart Section - Now below the tables */}
-              <div className="w-full flex justify-start">
-                <div className="w-1/2">
-                  <div className="text-yellow-300 font-bold mb-3 text-sm">PLAYER'S HERO PERFORMANCE CHART</div>
-                  {heroStats.length > 0 && (
-                    <div className="w-full bg-gray-800 rounded-lg p-3" style={{ height: '300px' }}>
-                    <Bar
-                      data={{
-                        labels: heroStats.map(row => row.hero),
-                        datasets: [
-                          {
-                            label: 'SUCCESS RATE',
-                            data: heroStats.map(row => row.winrate),
-                            type: 'line',
-                            borderColor: '#facc15',
-                            backgroundColor: '#facc15',
-                            yAxisID: 'y1',
-                            fill: false,
-                            tension: 0.4,
-                            pointRadius: 4,
-                            pointBackgroundColor: '#facc15',
-                            order: 0,
-                            z: 10,
-                          },
-                          {
-                            label: 'WIN',
-                            data: heroStats.map(row => Math.round(row.win)),
-                            backgroundColor: '#3b82f6',
-                            order: 1,
-                          },
-                          {
-                            label: 'LOSE',
-                            data: heroStats.map(row => Math.round(row.lose)),
-                            backgroundColor: '#f87171',
-                            order: 2,
-                          },
-                          {
-                            label: 'TOTAL',
-                            data: heroStats.map(row => Math.round(row.total)),
-                            backgroundColor: '#22c55e',
-                            order: 3,
-                          },
-                        ],
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: { position: 'top' },
-                          tooltip: { mode: 'index', intersect: false },
-                        },
-                        scales: {
-                          y: { 
-                            beginAtZero: true, 
-                            title: { display: true, text: 'Count' },
-                            ticks: {
-                              stepSize: 1,
-                              callback: function(value) {
-                                return Math.round(value);
-                              }
-                            }
-                          },
-                          y1: {
-                            beginAtZero: true,
-                            position: 'right',
-                            title: { display: true, text: 'Success Rate (%)' },
-                            min: 0,
-                            max: 100,
-                            grid: { drawOnChartArea: false },
-                          },
-                        },
-                      }}
-                                          />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm modal LAST and highest z-index */}
-      {showConfirmModal && pendingPhoto && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-90" style={{ pointerEvents: 'auto' }}>
-          <div className="bg-[#23232a] rounded-2xl shadow-2xl p-8 min-w-[340px] max-w-[90vw] flex flex-col items-center z-[10000]">
-            <div className="text-white text-lg font-bold mb-4">Are you sure you want to use this photo?</div>
-            <img
-              src={URL.createObjectURL(pendingPhoto.file)}
-              alt="Preview"
-              className="w-[180px] h-[210px] object-cover mb-4 rounded-xl"
-              style={{ objectPosition: 'center' }}
-            />
-            <div className="flex gap-6">
-              <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold" onClick={handleConfirmUpload}>Confirm</button>
-              <button className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-semibold" onClick={handleCancelUpload}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirm Upload Modal */}
+      <ConfirmUploadModal
+        isOpen={showConfirmModal}
+        pendingPhoto={pendingPhoto}
+        onConfirm={handleConfirmUpload}
+        onCancel={handleCancelUpload}
+      />
 
       {/* Profile Modal */}
       <ProfileModal
@@ -1388,146 +881,15 @@ function PlayersStatistic() {
         onClose={() => setShowProfileModal(false)}
         user={currentUser}
       />
-    </div>
-  );
-}
 
-// Profile Modal Component
-function ProfileModal({ isOpen, onClose, user }) {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 animate-fadeIn">
-      <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700 animate-slideIn">
-        {/* Header */}
-        <div className="bg-gray-800 px-6 py-4 rounded-t-xl flex justify-between items-center border-b border-gray-700">
-          <h2 className="text-xl font-bold text-white">Profile</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white text-2xl font-bold transition-colors"
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 bg-gray-900 rounded-b-xl">
-          {/* User Profile Section */}
-          <div className="flex items-start mb-6">
-            {/* Profile Picture */}
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mr-4 shadow-lg">
-              <svg className="w-12 h-12" fill="white" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
-                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-              </svg>
-            </div>
-
-            {/* User Info */}
-            <div className="flex-1">
-              <h3 className="text-2xl font-bold text-white mb-1">
-                {user?.name || 'User Name'}
-              </h3>
-              <p className="text-gray-400 text-sm mb-3">
-                @{user?.email?.split('@')[0] || 'username'}
-              </p>
-              
-              {/* Status Tags */}
-              <div className="flex gap-2">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-900/30 text-emerald-300 border border-emerald-500/40">
-                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-                  </svg>
-                  Active
-                </span>
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-900/30 text-indigo-300 border border-indigo-500/40">
-                  <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                  </svg>
-                  User
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Information Sections */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Contact Information */}
-            <div>
-              <h4 className="text-lg font-semibold text-white mb-4">Contact Information</h4>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  <span className="text-gray-300">@{user?.email?.split('@')[0] || 'username'}</span>
-                </div>
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  <span className="text-gray-300">Not provided</span>
-                </div>
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 text-amber-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                  </svg>
-                  <span className="text-gray-300">••••••••</span>
-                  <button className="ml-2 text-gray-400 hover:text-white transition-colors">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Account Information */}
-            <div>
-              <h4 className="text-lg font-semibold text-white mb-4">Account Information</h4>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-gray-300">Last Login: {new Date().toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}</span>
-                </div>
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-gray-300">Date Added: {new Date().toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}</span>
-                </div>
-                <div className="flex items-center">
-                  <svg className="w-4 h-4 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-gray-300">Last Updated: {new Date().toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-        </div>
-      </div>
+      {/* Hidden file input */}
+      <input
+        type="file"
+        accept="image/*"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        onChange={e => handleFileSelect(e, modalInfo?.player?.name, modalInfo?.player?.role)}
+      />
     </div>
   );
 }
