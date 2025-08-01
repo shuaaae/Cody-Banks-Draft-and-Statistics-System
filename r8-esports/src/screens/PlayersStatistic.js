@@ -986,11 +986,11 @@ function PlayersStatistic() {
       {/* Player modal */}
       {modalInfo && !showConfirmModal && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 animate-fadeIn"
           onClick={() => setModalInfo(null)}
         >
           <div 
-            className="bg-[#23232a] rounded-2xl shadow-2xl p-6 min-w-[600px] max-w-[90vw] relative flex flex-col" 
+            className="bg-[#23232a] rounded-2xl shadow-2xl p-6 min-w-[600px] max-w-[90vw] relative flex flex-col animate-slideIn" 
             style={{ width: '700px' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1397,8 +1397,8 @@ function ProfileModal({ isOpen, onClose, user }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 animate-fadeIn">
+      <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700 animate-slideIn">
         {/* Header */}
         <div className="bg-gray-800 px-6 py-4 rounded-t-xl flex justify-between items-center border-b border-gray-700">
           <h2 className="text-xl font-bold text-white">Profile</h2>

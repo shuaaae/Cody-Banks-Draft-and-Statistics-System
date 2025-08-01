@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import navbarBg from '../assets/navbarbackground.jpg';
+import hoverBg from '../assets/hoverbg.jpg';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaTrash, FaSignOutAlt } from 'react-icons/fa';
+import { FaTrash, FaSignOutAlt, FaChartBar } from 'react-icons/fa';
 import PageTitle from '../components/PageTitle';
 import Header from '../components/Header';
 import useSessionTimeout from '../hooks/useSessionTimeout';
 import { getMatchesData, clearMatchesCache } from '../App';
+import HeroStats from './HeroStats';
 
 // Add lane options
 const LANE_OPTIONS = [
@@ -85,6 +87,7 @@ export default function HomePage() {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('success'); // 'success' or 'error'
+  const [showHeroStatsModal, setShowHeroStatsModal] = useState(false);
 
   const [heroPickerSelected, setHeroPickerSelected] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
@@ -629,6 +632,14 @@ export default function HomePage() {
                 Export Match
               </button>
               
+              <button
+                className="bg-green-500 hover:bg-green-600 text-white font-bold px-8 py-3 rounded-lg shadow transition flex items-center mr-4"
+                onClick={() => setShowHeroStatsModal(true)}
+              >
+                <FaChartBar className="mr-2" />
+                Hero Stats
+              </button>
+              
               <h1 className="text-2xl font-bold text-blue-200 ml-4">Cody Banks Draft and Statistics System</h1>
             </div>
             {/* Scrollable Table Container */}
@@ -723,8 +734,8 @@ export default function HomePage() {
                           key={team.id}
                           data-match-id={match.id}
                           className={
-                            `transition-colors duration-200 rounded-lg ` +
-                            (hoveredMatchId === match.id ? 'bg-blue-900/30' : '')
+                            `transition-all duration-300 ease-out cursor-pointer rounded-lg ` +
+                            (hoveredMatchId === match.id ? 'bg-blue-900/40 shadow-lg' : 'hover:bg-blue-900/20 hover:shadow-md')
                           }
                           onMouseEnter={() => setHoveredMatchId(match.id)}
                           onMouseLeave={() => setHoveredMatchId(null)}
@@ -867,7 +878,7 @@ export default function HomePage() {
         </div>
       </main>
       {(modalState === 'export' || modalState === 'heroPicker') && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black bg-opacity-70">
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black bg-opacity-70 animate-fadeIn">
           <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', background: 'rgba(30, 41, 59, 0.85)', zIndex: 1000 }} onClick={() => setModalState('none')} />
           <div className="modal-box w-full max-w-[110rem] rounded-2xl shadow-2xl p-8 px-20" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1001, borderRadius: 24, background: '#101014', boxShadow: '0 8px 32px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Focus trap to prevent date input from being auto-focused */}
@@ -1173,8 +1184,8 @@ export default function HomePage() {
       )}
       {/* Delete Confirmation Modal */}
       {modalState === 'deleteConfirm' && deleteConfirmMatch && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80">
-          <div className="modal-box w-full max-w-md bg-[#23232a] rounded-2xl shadow-2xl p-8">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80 animate-fadeIn">
+          <div className="modal-box w-full max-w-md bg-[#23232a] rounded-2xl shadow-2xl p-8 animate-zoomIn">
             <h3 className="text-xl font-bold text-white mb-4">Archive Match</h3>
             <div className="mb-6">
               <p className="text-white mb-2">Are you sure you want to archive this match?</p>
@@ -1214,26 +1225,48 @@ export default function HomePage() {
 
 
 
+      {/* CSS Animation for hover modal */}
+      <style>
+        {`
+          @keyframes fadeInSlide {
+            from {
+              opacity: 0;
+              transform: translateY(-10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `}
+      </style>
+      
       {/* Hover modal for match details */}
       {hoveredMatchId && (() => {
         const match = matches.find(m => m.id === hoveredMatchId);
         if (!match) return null;
-        // Find the DOM node for the hovered row
-        const row = document.querySelector(`tr[data-match-id='${hoveredMatchId}']`);
-        let top = 200, left = 1200; // fallback values
+        // Center the hovered details
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
         const modalHeight = 520; // Approximate modal height
-        if (row) {
-          const rect = row.getBoundingClientRect();
-          const viewportHeight = window.innerHeight;
-          left = rect.left + window.scrollX + rect.width / 2;
-          // Default: below the row
-          let desiredTop = rect.bottom + 16;
-          // If it would overflow bottom, show above
-          if (desiredTop + modalHeight > viewportHeight + window.scrollY) {
-            desiredTop = rect.top + window.scrollY - modalHeight - 16;
-            if (desiredTop < window.scrollY + 16) desiredTop = window.scrollY + 16; // Clamp to top
-          }
-          top = desiredTop;
+        const modalWidth = 800; // Modal width
+
+        // Calculate center position
+        let top = (viewportHeight - modalHeight) / 2 + window.scrollY;
+        let left = (viewportWidth - modalWidth) / 2 + window.scrollX;
+
+        // Ensure modal stays within viewport bounds
+        if (top < window.scrollY + 16) {
+          top = window.scrollY + 16;
+        }
+        if (top + modalHeight > viewportHeight + window.scrollY) {
+          top = viewportHeight + window.scrollY - modalHeight - 16;
+        }
+        if (left < window.scrollX + 16) {
+          left = window.scrollX + 16;
+        }
+        if (left + modalWidth > viewportWidth + window.scrollX) {
+          left = viewportWidth + window.scrollX - modalWidth - 16;
         }
         // Prepare team data
         const blueTeam = match.teams.find(t => t.team_color === 'blue');
@@ -1259,49 +1292,48 @@ export default function HomePage() {
               position: 'fixed',
               left: left,
               top: top,
-              transform: 'translate(-50%, 0)',
               zIndex: 9999,
-              background: '#23232a',
+              zIndex: 9999,
+              background: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(${hoverBg}) center/cover`,
               color: 'white',
               borderRadius: 12,
               boxShadow: '0 4px 24px 0 rgba(0,0,0,0.25)',
               padding: 24,
-              minWidth: 600,
+              minWidth: 800,
               pointerEvents: 'none',
-              transition: 'top 0.1s, left 0.1s',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               maxHeight: '90vh',
               overflowY: 'auto',
+              opacity: 0,
+              animation: 'slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards',
             }}
           >
             {/* Visual Draft View */}
             <div style={{
-              display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', width: 600, marginBottom: 24,
-              background: '#133366',
-              borderRadius: 32,
-              boxShadow: '0 8px 32px 0 rgba(30,40,80,0.45)',
-              border: '2px solid #2a3757',
-              padding: '32px 24px',
+              display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: 800, height: 400, marginBottom: 24,
+              borderRadius: 16,
+              padding: '24px',
               position: 'relative',
-              overflow: 'hidden',
+              overflow: 'visible',
             }}>
-              {/* Floor bar at the bottom */}
-              <div style={{
-                position: 'absolute',
-                left: 0,
-                bottom: 0,
-                width: '100%',
-                height: 40,
-                background: '#1a3a6b',
-                borderBottomLeftRadius: 32,
-                borderBottomRightRadius: 32,
-                zIndex: 0,
-              }} />
+              
               {/* Team 1 (Blue) */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 120, zIndex: 1 }}>
-                <div style={{ fontWeight: 'bold', color: '#60a5fa', marginBottom: 8, fontSize: 18 }}>{blueTeam?.team || 'Team 1'}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: 120, zIndex: 1, position: 'absolute', left: 0, maxWidth: '150px' }}>
+                <div style={{ 
+                  fontWeight: 'bold', 
+                  color: '#60a5fa', 
+                  marginBottom: 8, 
+                  fontSize: 18,
+                  textAlign: 'left',
+                  wordWrap: 'break-word',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '100%'
+                }}>{blueTeam?.team || 'Team 1'}</div>
                 {/* Bans for Blue Team */}
-                <div style={{ display: 'flex', flexDirection: 'row', marginBottom: 12, marginLeft: 96 }}>
-                  {getBans(blueTeam).map((heroName, idx) => {
+                <div style={{ display: 'flex', flexDirection: 'row', marginBottom: 12, marginLeft: 0, justifyContent: 'flex-start', gap: 8 }}>
+                  {getBans(blueTeam).filter(heroName => heroName).map((heroName, idx) => {
                     return (
                       <div key={idx} style={{ margin: 0 }}>
                         <OptimizedBanHeroIcon heroName={heroName} />
@@ -1314,18 +1346,132 @@ export default function HomePage() {
                   {getPicks(blueTeam).map((pickObj, idx) => {
                     const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                     return (
-                      <div key={idx} style={{ margin: 0 }}>
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
                         <OptimizedHeroImage heroName={heroName} size={56} />
+                        <span style={{ fontSize: '12px', color: '#60a5fa', fontWeight: 'bold' }}>{heroName}</span>
                       </div>
                     );
                   })}
                 </div>
               </div>
+
+              {/* Center Statistics */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '24px',
+                background: 'rgba(0,0,0,0.7)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255,255,255,0.15)',
+                backdropFilter: 'blur(15px)',
+                position: 'absolute',
+                top: '65%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                zIndex: 2,
+                width: '500px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '16px',
+                  width: '100%',
+                }}>
+                  {/* Turtle Taken */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, rgba(255,193,7,0.15), rgba(255,193,7,0.05))',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,193,7,0.2)',
+                    boxShadow: '0 4px 12px rgba(255,193,7,0.1)',
+                    position: 'relative',
+                  }}>
+                    <div style={{ fontSize: '10px', color: '#fbbf24', fontWeight: 'bold', marginBottom: '8px' }}>Turtle</div>
+                    <div style={{ fontSize: '16px', color: 'white', fontWeight: 'bold', textAlign: 'center', width: '100%' }}>{match.turtle_taken ?? 'N/A'}</div>
+                  </div>
+
+                  {/* Lord Taken */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, rgba(147,51,234,0.15), rgba(147,51,234,0.05))',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(147,51,234,0.2)',
+                    boxShadow: '0 4px 12px rgba(147,51,234,0.1)',
+                    position: 'relative',
+                  }}>
+                    <div style={{ fontSize: '10px', color: '#a78bfa', fontWeight: 'bold', marginBottom: '8px' }}>Lord</div>
+                    <div style={{ fontSize: '16px', color: 'white', fontWeight: 'bold', textAlign: 'center', width: '100%' }}>{match.lord_taken ?? 'N/A'}</div>
+                  </div>
+                </div>
+
+                {/* Playstyle and Notes */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 2fr',
+                  gap: '16px',
+                  width: '100%',
+                }}>
+                  {match.playstyle && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      padding: '12px',
+                      background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(59,130,246,0.2)',
+                      boxShadow: '0 4px 12px rgba(59,130,246,0.1)',
+                      position: 'relative',
+                    }}>
+                      <div style={{ fontSize: '10px', color: '#93c5fd', fontWeight: 'bold', marginBottom: '8px' }}>Playstyle</div>
+                      <div style={{ fontSize: '14px', color: 'white', fontWeight: 'semibold', textAlign: 'center', width: '100%' }}>{match.playstyle}</div>
+                    </div>
+                  )}
+
+                  {match.notes && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      padding: '16px',
+                      background: 'linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05))',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(34,197,94,0.2)',
+                      boxShadow: '0 4px 12px rgba(34,197,94,0.1)',
+                      position: 'relative',
+                    }}>
+                      <div style={{ fontSize: '10px', color: '#86efac', fontWeight: 'bold', marginBottom: '8px' }}>Notes</div>
+                      <div style={{ fontSize: '16px', color: 'white', fontWeight: 'semibold', textAlign: 'center', width: '100%' }}>{match.notes}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Team 2 (Red) */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 120, zIndex: 1 }}>
-                <div style={{ fontWeight: 'bold', color: '#f87171', marginBottom: 8, fontSize: 18 }}>{redTeam?.team || 'Team 2'}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: 120, zIndex: 1, position: 'absolute', right: 0, maxWidth: '150px' }}>
+                <div style={{ 
+                  fontWeight: 'bold', 
+                  color: '#f87171', 
+                  marginBottom: 8, 
+                  fontSize: 18,
+                  textAlign: 'right',
+                  wordWrap: 'break-word',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '100%'
+                }}>{redTeam?.team || 'Team 2'}</div>
                 {/* Bans for Red Team */}
-                <div style={{ display: 'flex', flexDirection: 'row', marginBottom: 12, marginRight: 96 }}>
+                <div style={{ display: 'flex', flexDirection: 'row', marginBottom: 12, marginRight: 0, justifyContent: 'flex-end', gap: 8 }}>
                   {getBans(redTeam).map((heroName, idx) => {
                     return (
                       <div key={idx} style={{ margin: 0 }}>
@@ -1339,7 +1485,8 @@ export default function HomePage() {
                   {getPicks(redTeam).map((pickObj, idx) => {
                     const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                     return (
-                      <div key={idx} style={{ margin: 0 }}>
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0, justifyContent: 'flex-end' }}>
+                        <span style={{ fontSize: '12px', color: '#f87171', fontWeight: 'bold', minWidth: '60px', textAlign: 'right' }}>{heroName}</span>
                         <OptimizedHeroImage heroName={heroName} size={56} />
                       </div>
                     );
@@ -1347,11 +1494,7 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            {/* Old text info */}
-            <div><b>Turtle taken:</b> {match.turtle_taken ?? 'N/A'}</div>
-            <div><b>Lord taken:</b> {match.lord_taken ?? 'N/A'}</div>
-            <div><b>Playstyle:</b> {match.playstyle ?? 'N/A'}</div>
-            <div><b>Notes:</b> {match.notes ?? 'N/A'}</div>
+
           </div>
         );
       })()}
@@ -1369,6 +1512,13 @@ export default function HomePage() {
         onClose={() => setShowAlertModal(false)}
         message={alertMessage}
         type={alertType}
+      />
+      
+      {/* Hero Stats Modal */}
+      <HeroStats 
+        isOpen={showHeroStatsModal}
+        onClose={() => setShowHeroStatsModal(false)}
+        matches={matches}
       />
     </div>
   );
@@ -1667,8 +1817,8 @@ function ProfileModal({ isOpen, onClose, user }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 animate-fadeIn">
+      <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700 animate-slideIn">
         {/* Header */}
         <div className="bg-gray-800 px-6 py-4 rounded-t-xl flex justify-between items-center border-b border-gray-700">
           <h2 className="text-xl font-bold text-white">Profile</h2>
@@ -1814,8 +1964,8 @@ function AlertModal({ isOpen, onClose, message, type = 'success' }) {
   const textColor = isSuccess ? 'text-green-200' : 'text-red-200';
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-      <div className={`bg-gray-900 rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 border ${borderColor}`}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 animate-fadeIn">
+      <div className={`bg-gray-900 rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 border ${borderColor} animate-zoomIn`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">

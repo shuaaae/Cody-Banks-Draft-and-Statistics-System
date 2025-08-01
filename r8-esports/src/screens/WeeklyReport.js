@@ -577,8 +577,8 @@ export default function WeeklyReport() {
    if (!isOpen) return null;
 
    return (
-     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-       <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-md mx-4 border border-gray-700">
+     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 animate-fadeIn">
+       <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-md mx-4 border border-gray-700 animate-slideIn">
          {/* Header */}
          <div className="bg-red-800 px-6 py-4 rounded-t-xl flex justify-between items-center border-b border-gray-700">
            <h2 className="text-xl font-bold text-white">Session Expired</h2>
@@ -629,11 +629,11 @@ export default function WeeklyReport() {
 
    return (
      <div 
-       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50"
+       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 animate-fadeIn"
        onClick={onClose}
      >
        <div 
-         className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700 max-h-[90vh] flex flex-col"
+         className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700 max-h-[90vh] flex flex-col animate-slideIn"
          onClick={(e) => e.stopPropagation()}
        >
          {/* Header */}
@@ -669,8 +669,8 @@ export default function WeeklyReport() {
    if (!isOpen) return null;
 
    return (
-     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-       <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-md mx-4 border border-green-500">
+     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 animate-fadeIn">
+       <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-md mx-4 border border-green-500 animate-zoomIn">
          {/* Header */}
          <div className="bg-green-800 px-6 py-4 rounded-t-xl flex justify-between items-center border-b border-green-700">
            <h2 className="text-xl font-bold text-white">Success</h2>
@@ -715,8 +715,8 @@ function ProfileModal({ isOpen, onClose, user }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 animate-fadeIn">
+      <div className="bg-gray-900 rounded-xl shadow-2xl p-0 w-full max-w-2xl mx-4 border border-gray-700 animate-slideIn">
         {/* Header */}
         <div className="bg-gray-800 px-6 py-4 rounded-t-xl flex justify-between items-center border-b border-gray-700">
           <h2 className="text-xl font-bold text-white">Profile</h2>
