@@ -1,0 +1,22 @@
+{
+  "name": "r8-pocketbase-migration",
+  "version": "1.0.0",
+  "description": "Migration script for R8 Esports from Laravel to PocketBase",
+  "main": "migrate-data.js",
+  "scripts": {
+    "migrate": "node migrate-data.js",
+    "start": "node migrate-data.js"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.0"
+  },
+  "type": "module",
+  "keywords": [
+    "pocketbase",
+    "migration",
+    "laravel",
+    "esports"
+  ],
+  "author": "R8 Esports Team",
+  "license": "MIT"
+} 
