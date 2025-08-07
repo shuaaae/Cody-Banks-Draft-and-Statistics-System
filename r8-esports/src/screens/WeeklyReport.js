@@ -353,6 +353,7 @@ export default function WeeklyReport() {
               <ProgressionChart 
                 progressionData={progressionData}
                 loading={loading}
+                dateRange={dateRange}
               />
             </div>
             

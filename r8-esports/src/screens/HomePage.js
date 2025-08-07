@@ -593,6 +593,7 @@ export default function HomePage() {
         setBanning={setBanning}
         setPicks={setPicks}
         heroList={heroList}
+        setModalState={setModalState}
       />
       {/* Lane Select Modal */}
       <LaneSelectModal

@@ -25,6 +25,8 @@ export default function DraftBoard({
   handleHeroSelect,
   isActiveSlot,
   handleHeroRemove,
+  handleDraftSlotClick,
+  handleDraftSlotEdit,
   isCompleteDraft = false
 }) {
   return (
@@ -60,6 +62,8 @@ export default function DraftBoard({
                     size="w-12 h-12" 
                     isActiveSlot={isActiveSlot}
                     handleHeroRemove={handleHeroRemove}
+                    handleDraftSlotClick={handleDraftSlotClick}
+                    handleDraftSlotEdit={handleDraftSlotEdit}
                     isCompleteDraft={isCompleteDraft}
                   />
                 </div>
@@ -96,6 +100,8 @@ export default function DraftBoard({
                     size="w-12 h-12" 
                     isActiveSlot={isActiveSlot}
                     handleHeroRemove={handleHeroRemove}
+                    handleDraftSlotClick={handleDraftSlotClick}
+                    handleDraftSlotEdit={handleDraftSlotEdit}
                     isCompleteDraft={isCompleteDraft}
                   />
                 </div>
@@ -111,6 +117,8 @@ export default function DraftBoard({
               size="w-16 h-16" 
               isActiveSlot={isActiveSlot}
               handleHeroRemove={handleHeroRemove}
+              handleDraftSlotClick={handleDraftSlotClick}
+              handleDraftSlotEdit={handleDraftSlotEdit}
               isCompleteDraft={isCompleteDraft}
             />
           </div>
@@ -123,6 +131,8 @@ export default function DraftBoard({
               size="w-16 h-16" 
               isActiveSlot={isActiveSlot}
               handleHeroRemove={handleHeroRemove}
+              handleDraftSlotClick={handleDraftSlotClick}
+              handleDraftSlotEdit={handleDraftSlotEdit}
               isCompleteDraft={isCompleteDraft}
             />
           </div>

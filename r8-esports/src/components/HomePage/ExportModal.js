@@ -64,6 +64,8 @@ export default function ExportModal({
   const [heroLoading, setHeroLoading] = useState(false);
   const [selectedType, setSelectedType] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDraftSlot, setSelectedDraftSlot] = useState(null); // { type: 'ban'|'pick', team: 'blue'|'red', index: number }
+  const [draftSlotSearch, setDraftSlotSearch] = useState(''); // For draft slot editing modal
 
   if (!isOpen) return null;
 
@@ -77,43 +79,44 @@ export default function ExportModal({
 
   // Handle comprehensive draft for both teams
   const handleComprehensiveDraft = () => {
-    // Initialize complete draft steps: bans first, then picks
+    // Initialize complete draft steps with proper MOBA draft order
+    // Draft phase order: blue-red-blue-red-blue-red (ban), blue-red-blue-red-blue-red (pick), blue-red-blue-red (ban), blue-red-blue-red (pick)
     const completeDraftSteps = [
-      // Blue Team Bans (5 bans)
-      { type: 'ban', team: 'blue', step: 0 },
-      { type: 'ban', team: 'blue', step: 1 },
-      { type: 'ban', team: 'blue', step: 2 },
-      { type: 'ban', team: 'blue', step: 3 },
-      { type: 'ban', team: 'blue', step: 4 },
+      // Ban Phase 1 (6 bans: blue-red-blue-red-blue-red)
+      { type: 'ban', team: 'blue', step: 0, phase: 1 },
+      { type: 'ban', team: 'red', step: 1, phase: 1 },
+      { type: 'ban', team: 'blue', step: 2, phase: 1 },
+      { type: 'ban', team: 'red', step: 3, phase: 1 },
+      { type: 'ban', team: 'blue', step: 4, phase: 1 },
+      { type: 'ban', team: 'red', step: 5, phase: 1 },
       
-      // Red Team Bans (5 bans)
-      { type: 'ban', team: 'red', step: 5 },
-      { type: 'ban', team: 'red', step: 6 },
-      { type: 'ban', team: 'red', step: 7 },
-      { type: 'ban', team: 'red', step: 8 },
-      { type: 'ban', team: 'red', step: 9 },
+      // Pick Phase 1 (6 picks: blue-red-red-blue-blue-red)
+      { type: 'pick', team: 'blue', lane: 'exp', label: 'Exp Lane', role: 'Fighter', step: 6, phase: 1 },
+      { type: 'pick', team: 'red', lane: 'exp', label: 'Exp Lane', role: 'Fighter', step: 7, phase: 1 },
+      { type: 'pick', team: 'red', lane: 'jungler', label: 'Jungler', role: 'Assassin', step: 8, phase: 1 },
+      { type: 'pick', team: 'blue', lane: 'jungler', label: 'Jungler', role: 'Assassin', step: 9, phase: 1 },
+      { type: 'pick', team: 'blue', lane: 'mid', label: 'Mid Lane', role: 'Mage', step: 10, phase: 1 },
+      { type: 'pick', team: 'red', lane: 'mid', label: 'Mid Lane', role: 'Mage', step: 11, phase: 1 },
       
-      // Blue Team Picks (5 picks with lanes)
-      { type: 'pick', team: 'blue', lane: 'exp', label: 'Exp Lane', role: 'Fighter', step: 10 },
-      { type: 'pick', team: 'blue', lane: 'jungler', label: 'Jungler', role: 'Assassin', step: 11 },
-      { type: 'pick', team: 'blue', lane: 'mid', label: 'Mid Lane', role: 'Mage', step: 12 },
-      { type: 'pick', team: 'blue', lane: 'gold', label: 'Gold Lane', role: 'Marksman', step: 13 },
-      { type: 'pick', team: 'blue', lane: 'roam', label: 'Roam', role: 'Support', step: 14 },
+      // Ban Phase 2 (4 bans: red-blue-red-blue)
+      { type: 'ban', team: 'red', step: 12, phase: 2 },
+      { type: 'ban', team: 'blue', step: 13, phase: 2 },
+      { type: 'ban', team: 'red', step: 14, phase: 2 },
+      { type: 'ban', team: 'blue', step: 15, phase: 2 },
       
-      // Red Team Picks (5 picks with lanes)
-      { type: 'pick', team: 'red', lane: 'exp', label: 'Exp Lane', role: 'Fighter', step: 15 },
-      { type: 'pick', team: 'red', lane: 'jungler', label: 'Jungler', role: 'Assassin', step: 16 },
-      { type: 'pick', team: 'red', lane: 'mid', label: 'Mid Lane', role: 'Mage', step: 17 },
-      { type: 'pick', team: 'red', lane: 'gold', label: 'Gold Lane', role: 'Marksman', step: 18 },
-      { type: 'pick', team: 'red', lane: 'roam', label: 'Roam', role: 'Support', step: 19 }
+      // Pick Phase 2 (4 picks: red-blue-blue-red)
+      { type: 'pick', team: 'red', lane: 'gold', label: 'Gold Lane', role: 'Marksman', step: 16, phase: 2 },
+      { type: 'pick', team: 'blue', lane: 'gold', label: 'Gold Lane', role: 'Marksman', step: 17, phase: 2 },
+      { type: 'pick', team: 'blue', lane: 'roam', label: 'Roam', role: 'Support', step: 18, phase: 2 },
+      { type: 'pick', team: 'red', lane: 'roam', label: 'Roam', role: 'Support', step: 19, phase: 2 }
     ];
     
-          setDraftSteps(completeDraftSteps);
-      setCurrentStep(0);
-      setDraftFinished(false);
-      setDraftPicks({ blue: [], red: [] });
-      setDraftBans({ blue: [], red: [] });
-      setShowDraft(true);
+    setDraftSteps(completeDraftSteps);
+    setCurrentStep(0);
+    setDraftFinished(false);
+    setDraftPicks({ blue: [], red: [] });
+    setDraftBans({ blue: [], red: [] });
+    setShowDraft(true);
   };
 
   // Handle hero selection in draft
@@ -123,11 +126,24 @@ export default function ExportModal({
     const currentDraftStep = draftSteps[currentStep];
     
     if (currentDraftStep.type === 'ban') {
-      // Handle ban selection - store the complete hero object
-      setDraftBans(prev => ({
-        ...prev,
-        [currentDraftStep.team]: [...prev[currentDraftStep.team], hero]
-      }));
+      // Handle ban selection - find the next available slot (not skipped)
+      setDraftBans(prev => {
+        const currentTeamBans = prev[currentDraftStep.team] || [];
+        // Find the next available slot index
+        let nextSlotIndex = 0;
+        while (nextSlotIndex < currentTeamBans.length && currentTeamBans[nextSlotIndex] !== null) {
+          nextSlotIndex++;
+        }
+        
+        // Create a new array with the hero placed in the next available slot
+        const newBans = [...currentTeamBans];
+        newBans[nextSlotIndex] = hero;
+        
+        return {
+          ...prev,
+          [currentDraftStep.team]: newBans
+        };
+      });
     } else if (currentDraftStep.type === 'pick') {
       // Handle pick selection - store the complete hero object directly (like bans)
       // Add lane information to the hero object
@@ -151,42 +167,73 @@ export default function ExportModal({
     }
   };
 
+  // Handle skip ban function
+  const handleSkipBan = () => {
+    if (currentStep >= draftSteps.length) return;
+    const currentDraftStep = draftSteps[currentStep];
+    if (!currentDraftStep || currentDraftStep.type !== 'ban') return;
+    
+    // Add a null entry to mark this slot as skipped
+    setDraftBans(prev => {
+      const currentTeamBans = prev[currentDraftStep.team] || [];
+      // Find the next available slot index
+      let nextSlotIndex = 0;
+      while (nextSlotIndex < currentTeamBans.length && currentTeamBans[nextSlotIndex] !== null) {
+        nextSlotIndex++;
+      }
+      
+      // Create a new array with null placed in the next available slot to mark it as skipped
+      const newBans = [...currentTeamBans];
+      newBans[nextSlotIndex] = null;
+      
+      return {
+        ...prev,
+        [currentDraftStep.team]: newBans
+      };
+    });
+    
+    // Just advance to the next step, don't assign a hero
+    if (currentStep < draftSteps.length - 1) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      setDraftFinished(true);
+    }
+  };
+
   // Handle draft completion
   const handleDraftComplete = () => {
     // Update the banning state - extract hero names from hero objects
-    // Distribute 5 bans: 3 in phase 1, 2 in phase 2
+    // Distribute bans: 3 in phase 1, 2 in phase 2 for each team
+    const blueBans = draftBans.blue.map(hero => hero.name);
+    const redBans = draftBans.red.map(hero => hero.name);
+    
     setBanning({
-      blue1: draftBans.blue.slice(0, 3).map(hero => hero.name), // First 3 bans for phase 1
-      blue2: draftBans.blue.slice(3, 5).map(hero => hero.name), // Last 2 bans for phase 2
-      red1: draftBans.red.slice(0, 3).map(hero => hero.name),   // First 3 bans for phase 1
-      red2: draftBans.red.slice(3, 5).map(hero => hero.name)    // Last 2 bans for phase 2
+      blue1: blueBans.slice(0, 3), // First 3 bans for phase 1
+      blue2: blueBans.slice(3, 5), // Last 2 bans for phase 2
+      red1: redBans.slice(0, 3),   // First 3 bans for phase 1
+      red2: redBans.slice(3, 5)    // Last 2 bans for phase 2
     });
 
     // Update the picks state - extract hero names and lane info from hero objects
+    const bluePicks = draftPicks.blue.map(hero => ({
+      hero: hero.name,
+      lane: hero.lane,
+      role: hero.role
+    }));
+    const redPicks = draftPicks.red.map(hero => ({
+      hero: hero.name,
+      lane: hero.lane,
+      role: hero.role
+    }));
+
     setPicks({
       blue: {
-        1: draftPicks.blue.slice(0, 3).map(hero => ({
-          hero: hero.name,
-          lane: hero.lane,
-          role: hero.role
-        })), // First 3 picks for phase 1
-        2: draftPicks.blue.slice(3, 5).map(hero => ({
-          hero: hero.name,
-          lane: hero.lane,
-          role: hero.role
-        }))  // Last 2 picks for phase 2
+        1: bluePicks.slice(0, 3), // First 3 picks for phase 1
+        2: bluePicks.slice(3, 5)  // Last 2 picks for phase 2
       },
       red: {
-        1: draftPicks.red.slice(0, 3).map(hero => ({
-          hero: hero.name,
-          lane: hero.lane,
-          role: hero.role
-        })), // First 3 picks for phase 1
-        2: draftPicks.red.slice(3, 5).map(hero => ({
-          hero: hero.name,
-          lane: hero.lane,
-          role: hero.role
-        }))  // Last 2 picks for phase 2
+        1: redPicks.slice(0, 3), // First 3 picks for phase 1
+        2: redPicks.slice(3, 5)  // Last 2 picks for phase 2
       }
     });
 
@@ -195,12 +242,35 @@ export default function ExportModal({
 
   // Check if current slot is active
   const isActiveSlot = (slotType, slotTeam, slotIndex) => {
-    if (currentStep >= draftSteps.length) return false;
+    if (currentStep >= draftSteps.length || draftFinished) return false;
     
     const currentDraftStep = draftSteps[currentStep];
-    return currentDraftStep.type === slotType && 
-           currentDraftStep.team === slotTeam && 
-           slotIndex === currentStep;
+    if (currentDraftStep.type !== slotType || currentDraftStep.team !== slotTeam) return false;
+    
+    // For ban slots, we need to determine which slot index this step corresponds to
+    if (slotType === 'ban') {
+      // Count how many non-null bans this team has made so far (excluding skipped slots)
+      const teamBansSoFar = (draftBans[currentDraftStep.team] || []).filter(ban => ban !== null).length;
+      
+      // Find the next available slot index (where we would place the next ban)
+      const currentTeamBans = draftBans[currentDraftStep.team] || [];
+      let nextAvailableSlot = 0;
+      while (nextAvailableSlot < currentTeamBans.length && currentTeamBans[nextAvailableSlot] !== null) {
+        nextAvailableSlot++;
+      }
+      
+      return slotIndex === nextAvailableSlot;
+    }
+    
+    // For pick slots, use the lane order
+    if (slotType === 'pick') {
+      const laneOrder = ['exp', 'jungler', 'mid', 'gold', 'roam'];
+      const currentLane = currentDraftStep.lane;
+      const laneIndex = laneOrder.indexOf(currentLane);
+      return slotIndex === laneIndex;
+    }
+    
+    return false;
   };
 
   // Handle double-click to remove hero from slot
@@ -216,6 +286,66 @@ export default function ExportModal({
         [slotTeam]: prev[slotTeam].filter((_, index) => index !== slotIndex)
       }));
     }
+  };
+
+  // Handle clicking on draft slots for editing
+  const handleDraftSlotClick = (slotType, slotTeam, slotIndex) => {
+    setSelectedDraftSlot({ type: slotType, team: slotTeam, index: slotIndex });
+  };
+
+  // Handle hero selection for draft slot editing
+  const handleDraftSlotEdit = (hero) => {
+    if (!selectedDraftSlot) return;
+    
+    const { type, team, index } = selectedDraftSlot;
+    
+    if (type === 'ban') {
+      setDraftBans(prev => {
+        const currentTeamBans = prev[team] || [];
+        const newBans = [...currentTeamBans];
+        newBans[index] = hero;
+        return { ...prev, [team]: newBans };
+      });
+    } else if (type === 'pick') {
+      setDraftPicks(prev => {
+        const currentTeamPicks = prev[team] || [];
+        const newPicks = [...currentTeamPicks];
+        newPicks[index] = hero;
+        return { ...prev, [team]: newPicks };
+      });
+    }
+    
+    setSelectedDraftSlot(null);
+  };
+
+  // Get all banned and picked heroes for filtering
+  const getAllBannedAndPickedHeroes = () => {
+    const bannedHeroes = [];
+    const pickedHeroes = [];
+    
+    // Get all banned heroes
+    Object.values(draftBans).forEach(teamBans => {
+      if (teamBans) {
+        teamBans.forEach(hero => {
+          if (hero && hero.name) {
+            bannedHeroes.push(hero.name);
+          }
+        });
+      }
+    });
+    
+    // Get all picked heroes
+    Object.values(draftPicks).forEach(teamPicks => {
+      if (teamPicks) {
+        teamPicks.forEach(hero => {
+          if (hero && hero.name) {
+            pickedHeroes.push(hero.name);
+          }
+        });
+      }
+    });
+    
+    return [...bannedHeroes, ...pickedHeroes];
   };
 
   return (
@@ -242,6 +372,9 @@ export default function ExportModal({
               <div>
                 <h3 className="text-white text-lg font-bold">Complete Draft</h3>
                 <p className="text-blue-100 text-sm">Handle all bans and picks for both teams in one session</p>
+                <p className="text-blue-200 text-xs mt-1">
+                  Draft Order: Ban Phase 1 (6 bans) → Pick Phase 1 (6 picks) → Ban Phase 2 (4 bans) → Pick Phase 2 (4 picks)
+                </p>
               </div>
               <button
                 type="button"
@@ -514,6 +647,15 @@ export default function ExportModal({
                   </p>
                 </div>
                 <div className="flex gap-3">
+                  {/* Skip Ban Button - only show during banning phase */}
+                  {!draftFinished && draftSteps[currentStep]?.type === 'ban' && (
+                    <button
+                      onClick={handleSkipBan}
+                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                      Skip Ban
+                    </button>
+                  )}
                   <button
                     onClick={handleDraftComplete}
                     disabled={!draftFinished}
@@ -547,9 +689,90 @@ export default function ExportModal({
                   handleHeroSelect={handleHeroSelect}
                   isActiveSlot={isActiveSlot}
                   handleHeroRemove={handleHeroRemove}
+                  handleDraftSlotClick={handleDraftSlotClick}
+                  handleDraftSlotEdit={handleDraftSlotEdit}
                   isCompleteDraft={true}
                 />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hero Picker Modal for Draft Slot Editing */}
+      {selectedDraftSlot && (
+        <div className="fixed inset-0 z-[10003] flex items-center justify-center bg-black bg-opacity-80">
+          <div className="modal-box w-full max-w-4xl bg-[#23232a] rounded-2xl shadow-2xl p-8">
+            <h3 className="text-xl font-bold text-white mb-4">
+              Select Hero for {selectedDraftSlot.team === 'blue' ? 'Blue' : 'Red'} Team {selectedDraftSlot.type === 'ban' ? 'Ban' : 'Pick'} (Slot {selectedDraftSlot.index + 1})
+            </h3>
+            
+            {/* Search Bar */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-2">Search Hero</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search heroes..."
+                  value={draftSlotSearch}
+                  onChange={(e) => setDraftSlotSearch(e.target.value)}
+                  className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Filtered Hero Grid */}
+            <div className="grid grid-cols-8 gap-2 mb-6 max-h-[60vh] overflow-y-auto">
+              {heroList
+                .filter(hero => {
+                  // Filter by search term
+                  if (draftSlotSearch && !hero.name.toLowerCase().includes(draftSlotSearch.toLowerCase())) {
+                    return false;
+                  }
+                  
+                  // Filter out already banned/picked heroes
+                  const bannedAndPickedHeroes = getAllBannedAndPickedHeroes();
+                  if (bannedAndPickedHeroes.includes(hero.name)) {
+                    return false;
+                  }
+                  
+                  return true;
+                })
+                .map(hero => (
+                  <button
+                    key={hero.name}
+                    type="button"
+                    className="flex flex-col items-center justify-center p-3 rounded-lg border-2 border-transparent hover:border-blue-400 hover:bg-blue-900/20 text-white transition-all"
+                    onClick={() => handleDraftSlotEdit(hero)}
+                  >
+                    <div className="w-16 h-16 rounded-full shadow-lg overflow-hidden flex items-center justify-center mb-2 bg-gradient-to-b from-blue-900 to-blue-700">
+                      <img
+                        src={`/heroes/${hero.role?.trim().toLowerCase()}/${hero.image}`}
+                        alt={hero.name}
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    </div>
+                    <span className="text-sm font-semibold text-center w-20 truncate">
+                      {hero.name}
+                    </span>
+                  </button>
+                ))}
+            </div>
+            
+            <div className="flex justify-end gap-4">
+              <button
+                type="button"
+                className="btn bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-semibold"
+                onClick={() => {
+                  setSelectedDraftSlot(null);
+                  setDraftSlotSearch('');
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

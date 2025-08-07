@@ -49,7 +49,7 @@ export default function DraftControls({
       >
         Reset Draft
       </button>
-      {draftFinished && (
+      {isDraftStarted() && (
         <button
           onClick={handleSaveDraft}
           disabled={isSavingDraft}
