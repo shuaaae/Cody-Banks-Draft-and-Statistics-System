@@ -21,7 +21,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+<<<<<<< HEAD
         'is_admin',
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
     ];
 
     /**
@@ -46,6 +49,7 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+<<<<<<< HEAD
 
     /**
      * Get the notes for the user.
@@ -54,4 +58,6 @@ class User extends Authenticatable
     {
         return $this->hasMany(Note::class);
     }
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 }

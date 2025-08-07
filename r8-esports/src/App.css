@@ -85,6 +85,11 @@ input[type="date"]::-ms-input-placeholder {
   height: 100%;
   border-radius: 9999px;
   object-fit: cover;
+<<<<<<< HEAD
   object-position: center;
+=======
+  object-position: center 35%; /* adjust vertical focus to show more face */
+  transform: scale(1.35); /* zoom in on the face */
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
   box-shadow: 0 2px 8px 0 rgba(0,0,0,0.5);
 }

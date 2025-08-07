@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\GameMatchController;
 use App\Http\Controllers\MatchTeamController;
 use App\Http\Controllers\Api\HeroController;
 use App\Http\Controllers\Api\PlayerController;
+<<<<<<< HEAD
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdminController;
@@ -20,6 +21,8 @@ Route::get('/test', function () {
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/logout', [AuthController::class, 'logout']);
 Route::get('/auth/me', [AuthController::class, 'me']);
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 
 Route::middleware('api')->group(function () {
     Route::apiResource('matches', GameMatchController::class);
@@ -31,11 +34,15 @@ Route::post('/teams/history', [App\Http\Controllers\Api\HeroController::class, '
 Route::get('/teams/history', [App\Http\Controllers\Api\HeroController::class, 'getTeamHistory']);
 Route::post('/players/{player}/photo', [PlayerController::class, 'uploadPhoto']);
 Route::post('/players/photo-by-name', [PlayerController::class, 'uploadPhotoByName']);
+<<<<<<< HEAD
 Route::get('/players/photo-by-name', [PlayerController::class, 'getPhotoByName']);
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 Route::get('/players/{playerName}/hero-stats', [PlayerController::class, 'heroStats']);
 Route::get('/players/{playerName}/hero-stats-by-team', [PlayerController::class, 'heroStatsByTeam']);
 Route::get('/players/{playerName}/hero-h2h-stats-by-team', [PlayerController::class, 'heroH2HStatsByTeam']);
 Route::get('/players', [PlayerController::class, 'index']);
+<<<<<<< HEAD
 
 // Team routes
 Route::get('/teams', [TeamController::class, 'index']);
@@ -55,4 +62,6 @@ Route::middleware(['api', 'admin'])->group(function () {
 
 // Notes routes (temporarily without authentication for testing)
 Route::apiResource('notes', NotesController::class);
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 });

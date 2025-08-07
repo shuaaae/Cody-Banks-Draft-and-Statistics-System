@@ -12,8 +12,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('matches', function (Blueprint $table) {
+<<<<<<< HEAD
             $table->string('turtle_taken')->nullable();
             $table->string('lord_taken')->nullable();
+=======
+            $table->integer('turtle_taken')->nullable();
+            $table->integer('lord_taken')->nullable();
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
             $table->text('notes')->nullable();
             $table->string('playstyle')->nullable();
         });

@@ -12,6 +12,7 @@ class GameMatchController extends Controller
     /**
      * Display a listing of the resource.
      */
+<<<<<<< HEAD
     public function index(Request $request)
     {
         // Get team_id from query parameter (frontend sends this)
@@ -52,6 +53,12 @@ class GameMatchController extends Controller
             'first_match' => $matches->first() ? $matches->first()->toArray() : null
         ]);
         
+=======
+    public function index()
+    {
+        // Get all matches with their teams
+        $matches = \App\Models\GameMatch::with('teams')->orderBy('match_date', 'desc')->get();
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
         return response()->json($matches);
     }
 
@@ -60,6 +67,7 @@ class GameMatchController extends Controller
      */
     public function store(Request $request)
     {
+<<<<<<< HEAD
         try {
             // Get team_id from request body first, then fallback to session
             $teamId = $request->input('team_id');
@@ -129,6 +137,44 @@ class GameMatchController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+=======
+        // Validate the request
+        $validated = $request->validate([
+            'match_date' => 'required|date',
+            'winner' => 'required|string',
+            'turtle_taken' => 'nullable|integer',
+            'lord_taken' => 'nullable|integer',
+            'notes' => 'nullable|string',
+            'playstyle' => 'nullable|string',
+            'teams' => 'required|array|size:2',
+            'teams.*.team' => 'required|string',
+            'teams.*.team_color' => 'required|in:blue,red',
+            'teams.*.banning_phase1' => 'required|array',
+            'teams.*.picks1' => 'required|array',
+            'teams.*.banning_phase2' => 'required|array',
+            'teams.*.picks2' => 'required|array',
+        ]);
+
+        // Create the match
+        $match = GameMatch::create([
+            'match_date' => $validated['match_date'],
+            'winner' => $validated['winner'],
+            'turtle_taken' => $validated['turtle_taken'] ?? null,
+            'lord_taken' => $validated['lord_taken'] ?? null,
+            'notes' => $validated['notes'] ?? null,
+            'playstyle' => $validated['playstyle'] ?? null,
+        ]);
+
+        // Defensive: Only create teams if present and is array
+        if (isset($validated['teams']) && is_array($validated['teams'])) {
+            foreach ($validated['teams'] as $teamData) {
+                $teamData['match_id'] = $match->id;
+                MatchTeam::create($teamData);
+            }
+        }
+
+        return response()->json(['message' => 'Match and teams saved successfully.'], 201);
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
     }
 
     /**
@@ -152,6 +198,7 @@ class GameMatchController extends Controller
      */
     public function destroy(string $id)
     {
+<<<<<<< HEAD
         try {
             // Find the match
             $match = GameMatch::findOrFail($id);
@@ -164,5 +211,8 @@ class GameMatchController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'Failed to archive match: ' . $e->getMessage()], 500);
         }
+=======
+        //
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
     }
 }

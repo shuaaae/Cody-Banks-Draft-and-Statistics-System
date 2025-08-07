@@ -1,5 +1,6 @@
 /* Fullscreen center container */
 .loading-container {
+<<<<<<< HEAD
   position: fixed;
   top: 0;
   left: 0;
@@ -12,6 +13,13 @@
   z-index: 9999;
   overflow: hidden;
   transition: opacity 0.3s ease;
+=======
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #000;
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 }
 
 /* Main loader box */

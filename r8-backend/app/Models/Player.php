@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Player extends Model
 {
+<<<<<<< HEAD
     protected $fillable = ['name', 'role', 'photo', 'team_id'];
 
     // Relationship to team
@@ -19,4 +20,7 @@ class Player extends Model
     {
         return $query->where('team_id', $teamId);
     }
+=======
+    protected $fillable = ['name', 'role', 'photo'];
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 }

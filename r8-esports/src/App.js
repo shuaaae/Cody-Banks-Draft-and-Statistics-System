@@ -5,6 +5,7 @@ import HomePage from './screens/HomePage';
 import LandingPage from './screens/LandingPage';
 import MockDraft from './screens/MockDraft';
 import PlayersStatistic from './screens/PlayersStatistic';
+<<<<<<< HEAD
 import WeeklyReport from './screens/WeeklyReport';
 import AdminLogin from './admin/AdminLogin';
 import AdminDashboard from './admin/AdminDashboard';
@@ -219,10 +220,35 @@ function AppRoutes({ setLoading }) {
         } />
       </Routes>
     </PageWrapper>
+=======
+import TeamHistory from './screens/TeamHistory';
+import WeeklyReport from './screens/WeeklyReport';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+
+function AppRoutes({ setLoading }) {
+  const location = useLocation();
+
+  useEffect(() => {
+    setLoading(true);
+    const timer = setTimeout(() => setLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, [location, setLoading]);
+
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/home" element={<HomePage />} />
+      <Route path="/mock-draft" element={<MockDraft />} />
+      <Route path="/players-statistic" element={<PlayersStatistic />} />
+      <Route path="/team-history" element={<TeamHistory />} />
+      <Route path="/weekly-report" element={<WeeklyReport />} />
+    </Routes>
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
   );
 }
 
 function App() {
+<<<<<<< HEAD
   const [loading, setLoading] = useState(true);
 
   // Add loading class to body on initial load
@@ -237,6 +263,9 @@ function App() {
       document.body.classList.remove('loading');
     };
   }, []);
+=======
+  const [loading, setLoading] = useState(false);
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 
   return (
     <Router>

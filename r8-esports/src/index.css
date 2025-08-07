@@ -2,11 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 body {
   font-family: 'Inter', sans-serif;
   margin: 0;
   background-color: #000; /* optional, for dark background testing */
   color: #fff;            /* optional, to see the text clearly */
+<<<<<<< HEAD
   /* Only show scrollbar when content actually overflows */
   overflow-y: auto;
   scrollbar-width: thin; /* Firefox */
@@ -109,11 +114,14 @@ html, body {
 
 .loading-screen::-webkit-scrollbar {
   display: none !important;
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
+<<<<<<< HEAD
 
 /* Modal Animations */
 @keyframes fadeIn {
@@ -218,3 +226,5 @@ code {
 .animate-zoomIn {
   animation: zoomIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5

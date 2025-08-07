@@ -14,12 +14,16 @@ class PlayerController extends Controller
             'photo' => 'required|image|max:2048', // 2MB max
         ]);
 
+<<<<<<< HEAD
         // Get the active team ID from session
         $activeTeamId = session('active_team_id');
         
         $player = Player::where('id', $playerId)
                        ->where('team_id', $activeTeamId)
                        ->firstOrFail();
+=======
+        $player = Player::findOrFail($playerId);
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
 
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
@@ -39,9 +43,12 @@ class PlayerController extends Controller
             'playerName' => 'required|string',
         ]);
 
+<<<<<<< HEAD
         // Get the active team ID from session
         $activeTeamId = session('active_team_id');
 
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
             $playerName = preg_replace('/[^A-Za-z0-9_-]/', '', $request->input('playerName'));
@@ -49,12 +56,18 @@ class PlayerController extends Controller
             $file->move(public_path('players'), $filename);
             $photoPath = 'players/' . $filename;
 
+<<<<<<< HEAD
             // Find or create the player by name for the active team
             $player = \App\Models\Player::firstOrCreate(
                 [
                     'name' => $request->input('playerName'),
                     'team_id' => $activeTeamId
                 ],
+=======
+            // Find or create the player by name
+            $player = \App\Models\Player::firstOrCreate(
+                ['name' => $request->input('playerName')],
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
                 ['role' => null]
             );
             $player->photo = $photoPath;
@@ -70,6 +83,7 @@ class PlayerController extends Controller
         return response()->json(['error' => 'No photo uploaded'], 400);
     }
 
+<<<<<<< HEAD
     public function getPhotoByName(Request $request)
     {
         $request->validate([
@@ -99,10 +113,16 @@ class PlayerController extends Controller
         
         // Return only players for the active team
         return Player::where('team_id', $activeTeamId)->get();
+=======
+    public function index()
+    {
+        return Player::all();
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
     }
 
     public function heroStats($playerName)
     {
+<<<<<<< HEAD
         // Get the active team ID from session
         $activeTeamId = session('active_team_id');
         
@@ -113,12 +133,19 @@ class PlayerController extends Controller
             $query->where('team_id', $activeTeamId);
         })->get();
         
+=======
+        // Get all match_teams joined with matches
+        $matchTeams = \App\Models\MatchTeam::with('match')->get();
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
         $heroStats = [];
 
         foreach ($matchTeams as $team) {
             $match = $team->match;
+<<<<<<< HEAD
             if (!$match) continue; // Skip if no match (shouldn't happen with whereHas)
             
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
             $isWin = $team->team === $match->winner;
             // Combine picks1 and picks2
             $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
@@ -161,6 +188,7 @@ class PlayerController extends Controller
 
     public function heroStatsByTeam(Request $request, $playerName)
     {
+<<<<<<< HEAD
         // Get the active team ID from session
         $activeTeamId = session('active_team_id');
         $teamName = $request->query('teamName');
@@ -201,10 +229,15 @@ class PlayerController extends Controller
             })
         ]);
         
+=======
+        $teamName = $request->query('teamName');
+        $matchTeams = \App\Models\MatchTeam::with('match')->get();
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
         $heroStats = [];
 
         foreach ($matchTeams as $team) {
             $match = $team->match;
+<<<<<<< HEAD
             if (!$match) continue; // Skip if no match
             
             $isWin = $team->team === $match->winner;
@@ -234,6 +267,36 @@ class PlayerController extends Controller
             }
         }
         
+=======
+            $isWin = $team->team === $match->winner;
+            // Combine picks1 and picks2
+            $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
+            foreach ($picks as $pick) {
+                // Only count if both player and team match
+                if (
+                    is_array($pick) &&
+                    isset($pick['hero']) &&
+                    isset($pick['player']) &&
+                    isset($pick['team']) &&
+                    strtolower($pick['player']) === strtolower($playerName) &&
+                    strtolower($pick['team']) === strtolower($teamName)
+                ) {
+                    $hero = $pick['hero'];
+                } else {
+                    continue;
+                }
+                if (!isset($heroStats[$hero])) {
+                    $heroStats[$hero] = ['win' => 0, 'lose' => 0, 'total' => 0];
+                }
+                $heroStats[$hero]['total']++;
+                if ($isWin) {
+                    $heroStats[$hero]['win']++;
+                } else {
+                    $heroStats[$hero]['lose']++;
+                }
+            }
+        }
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
         // Calculate winrate
         $result = [];
         foreach ($heroStats as $hero => $stat) {
@@ -254,6 +317,7 @@ class PlayerController extends Controller
     public function heroH2HStatsByTeam(Request $request, $playerName)
     {
         $teamName = $request->query('teamName');
+<<<<<<< HEAD
         $role = $request->query('role'); // Get role parameter for unique player identification
         
         // Debug logging
@@ -276,34 +340,59 @@ class PlayerController extends Controller
             'teams' => $matchTeams->pluck('team')->toArray()
         ]);
         
+=======
+        $matchTeams = \App\Models\MatchTeam::with('match')->get();
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
         $h2hStats = [];
 
         foreach ($matchTeams as $team) {
             $match = $team->match;
+<<<<<<< HEAD
             if (!$match) continue;
             
             $isWin = $team->team === $match->winner;
             
+=======
+            $isWin = $team->team === $match->winner;
+            $teamColor = $team->team_color ?? null;
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
             // Find the enemy team in the same match
             $enemyTeam = $match->teams->first(function($t) use ($team) {
                 return $t->id !== $team->id;
             });
             if (!$enemyTeam) continue;
+<<<<<<< HEAD
             
             // Combine picks1 and picks2 for both teams
             $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
             $enemyPicks = array_merge($enemyTeam->picks1 ?? [], $enemyTeam->picks2 ?? []);
             
+=======
+            // Combine picks1 and picks2 for both teams
+            $picks = array_merge($team->picks1 ?? [], $team->picks2 ?? []);
+            $enemyPicks = array_merge($enemyTeam->picks1 ?? [], $enemyTeam->picks2 ?? []);
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
             foreach ($picks as $pick) {
                 if (
                     is_array($pick) &&
                     isset($pick['hero']) &&
+<<<<<<< HEAD
                     isset($pick['lane']) &&
                     (!$role || strtolower($pick['lane']) === strtolower($role))
                 ) {
                     $playerHero = $pick['hero'];
                     $lane = $pick['lane'];
                     
+=======
+                    isset($pick['player']) &&
+                    isset($pick['team']) &&
+                    isset($pick['lane']) &&
+                    strtolower($pick['player']) === strtolower($playerName) &&
+                    strtolower($pick['team']) === strtolower($teamName)
+                ) {
+                    $playerHero = $pick['hero'];
+                    $lane = $pick['lane'];
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
                     // Find enemy hero in the same lane
                     $enemyPick = null;
                     foreach ($enemyPicks as $ep) {
@@ -312,12 +401,18 @@ class PlayerController extends Controller
                             break;
                         }
                     }
+<<<<<<< HEAD
                     
                     if (!$enemyPick) continue;
                     
                     $enemyHero = $enemyPick['hero'];
                     $key = $playerHero . ' vs ' . $enemyHero;
                     
+=======
+                    if (!$enemyPick) continue;
+                    $enemyHero = $enemyPick['hero'];
+                    $key = $playerHero . ' vs ' . $enemyHero;
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
                     if (!isset($h2hStats[$key])) {
                         $h2hStats[$key] = [
                             'player_hero' => $playerHero,
@@ -336,7 +431,10 @@ class PlayerController extends Controller
                 }
             }
         }
+<<<<<<< HEAD
         
+=======
+>>>>>>> 785b5dd1122d4e69303c857a251ae193f4f72eb5
         // Calculate winrate
         $result = [];
         foreach ($h2hStats as $stat) {
