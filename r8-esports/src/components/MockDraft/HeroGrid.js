@@ -32,9 +32,9 @@ export default function HeroGrid({
   const uniqueFilteredHeroes = Array.from(new Map(filteredHeroes.map(hero => [hero.name, hero])).values());
 
   // Track banned and picked heroes for availability
-  const bannedHeroes = [...bans.blue, ...bans.red].filter(Boolean);
-  const pickedHeroes = [...picks.blue, ...picks.red].filter(Boolean);
-  const unavailableHeroes = [...bannedHeroes, ...pickedHeroes];
+  const bannedHeroNames = [...bans.blue, ...bans.red].filter(Boolean).map(hero => hero.name);
+  const pickedHeroNames = [...picks.blue, ...picks.red].filter(Boolean).map(hero => hero.name);
+  const unavailableHeroNames = [...bannedHeroNames, ...pickedHeroNames];
 
   return (
     <>
@@ -75,9 +75,9 @@ export default function HeroGrid({
             .map(hero => {
             // Only allow click if current step is ban/pick and hero is not already banned/picked
             const step = draftSteps[currentStep];
-            const isBanned = bannedHeroes.includes(hero);
-            const isPicked = pickedHeroes.includes(hero);
-            const isDisabled = unavailableHeroes.includes(hero);
+            const isBanned = bannedHeroNames.includes(hero.name);
+            const isPicked = pickedHeroNames.includes(hero.name);
+            const isDisabled = unavailableHeroNames.includes(hero.name);
             const isSelectable =
               currentStep !== -1 &&
               step &&

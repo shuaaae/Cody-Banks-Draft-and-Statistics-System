@@ -104,9 +104,13 @@ export default function HeroPickerModal({
   // Don't filter out unavailable heroes - show them as disabled instead
   // filteredHeroes = filteredHeroes.filter(hero => !unavailableHeroes.includes(hero.name));
 
+  const handleModalClick = (e) => {
+    e.stopPropagation();
+  };
+
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80">
-      <div className="modal-box w-full max-w-5xl bg-[#23232a] rounded-2xl shadow-2xl p-8">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-80" onClick={handleModalClick}>
+      <div className="modal-box w-full max-w-5xl bg-[#23232a] rounded-2xl shadow-2xl p-8" onClick={handleModalClick}>
         <h3 className="text-xl font-bold text-white mb-2">
           Select {maxSelect} Hero{maxSelect > 1 ? 'es' : ''}
           {selectedType !== 'All' 
@@ -139,7 +143,8 @@ export default function HeroPickerModal({
           <button
             type="button"
             className={`px-4 py-1 rounded-full font-semibold border ${selectedType === 'All' && !showFlexPicks ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-white border-gray-600 hover:bg-blue-900/20'}`}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setSelectedType('All');
               setShowFlexPicks(false);
             }}
@@ -151,7 +156,8 @@ export default function HeroPickerModal({
             <button
               type="button"
               className={`px-4 py-1 rounded-full font-semibold border ${showFlexPicks ? 'bg-green-600 text-white border-green-600' : 'bg-transparent text-white border-gray-600 hover:bg-green-900/20'}`}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setSelectedType('All');
                 setShowFlexPicks(true);
               }}
@@ -165,7 +171,10 @@ export default function HeroPickerModal({
               key={type}
               type="button"
               className={`px-4 py-1 rounded-full font-semibold border ${selectedType === type ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-white border-gray-600 hover:bg-blue-900/20'}`}
-              onClick={() => setSelectedType(type)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedType(type);
+              }}
             >
               {type}
             </button>
@@ -178,6 +187,7 @@ export default function HeroPickerModal({
               placeholder="Search heroes..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
               className="px-4 py-1 bg-[#181A20] text-white rounded-full border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent pl-8 pr-3 w-48"
             />
             <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
@@ -207,7 +217,12 @@ export default function HeroPickerModal({
                         ? 'border-green-400 bg-green-900/30 text-white' 
                         : 'border-transparent hover:border-blue-400 hover:bg-blue-900/20 text-white'
                 }`}
-                onClick={() => !isUnavailable && toggleHero(hero.name)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isUnavailable) {
+                    toggleHero(hero.name);
+                  }
+                }}
                 disabled={isUnavailable || (localSelected.length === maxSelect && !localSelected.includes(hero.name))}
                 title={isBanned ? `${hero.name} is banned` : isPicked ? `${hero.name} is picked` : hero.name}
               >
@@ -250,7 +265,8 @@ export default function HeroPickerModal({
             type="button"
             className="btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold disabled:opacity-50"
             disabled={!canConfirm}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               if (canConfirm) {
                 setSelected(localSelected);
                 // Call onConfirm for pick flow, otherwise close modal
@@ -267,7 +283,11 @@ export default function HeroPickerModal({
           <button
             type="button"
             className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
-            onClick={() => { setLocalSelected([]); onClose(); }}
+            onClick={(e) => { 
+              e.stopPropagation();
+              setLocalSelected([]); 
+              onClose(); 
+            }}
           >
             Cancel
           </button>

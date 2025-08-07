@@ -22,9 +22,22 @@ export default function LaneSelectModal({
   const teamColor = currentPickSession?.team === 'blue' ? 'blue' : 'red';
   const teamEmoji = currentPickSession?.team === 'blue' ? '🔵' : '🔴';
   
+  const handleModalClick = (e) => {
+    e.stopPropagation();
+  };
+
+  const handleLaneClick = (laneKey) => {
+    onSelect(laneKey);
+  };
+
+  const handleCancelClick = (e) => {
+    e.stopPropagation();
+    onClose();
+  };
+  
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80">
-      <div className="modal-box w-full max-w-md bg-[#23232a] rounded-2xl shadow-2xl p-8">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-80" onClick={handleModalClick}>
+      <div className="modal-box w-full max-w-md bg-[#23232a] rounded-2xl shadow-2xl p-8" onClick={handleModalClick}>
         <h3 className="text-xl font-bold text-white mb-2">Select Lane</h3>
         
         {showProgress && (
@@ -46,14 +59,17 @@ export default function LaneSelectModal({
               key={lane.key}
               type="button"
               className="w-full px-4 py-2 rounded-lg border border-current text-white font-semibold bg-transparent hover:bg-blue-600 hover:text-white transition-colors duration-150"
-              onClick={() => onSelect(lane.key)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLaneClick(lane.key);
+              }}
             >
               {lane.label}
             </button>
           ))}
         </div>
         <div className="flex justify-end mt-6">
-          <button type="button" className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold" onClick={handleCancelClick}>Cancel</button>
         </div>
       </div>
     </div>

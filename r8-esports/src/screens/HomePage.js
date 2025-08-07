@@ -80,6 +80,11 @@ export default function HomePage() {
   const navigate = useNavigate();
   const isMountedRef = useRef(true);
 
+  // Form field states for ExportModal
+  const [matchDate, setMatchDate] = useState('');
+  const [winner, setWinner] = useState('');
+  const [blueTeam, setBlueTeam] = useState('');
+  const [redTeam, setRedTeam] = useState('');
 
 
   // User session timeout: 30 minutes
@@ -201,12 +206,18 @@ export default function HomePage() {
     setNotes('');
     setPlaystyle('');
     
+    // Reset form field states
+    setMatchDate('');
+    setWinner('');
+    setBlueTeam('');
+    setRedTeam('');
+    
     // Reset pick flow state
     setCurrentPickSession(null);
     setHeroPickerMode(null);
     setPickerStep('lane');
     
-    // Reset form inputs
+    // Reset form inputs (for backward compatibility)
     const matchDateInput = document.getElementById('match-date-input');
     const winnerInput = document.getElementById('winner-input');
     const blueTeamInput = document.getElementById('blue-team-input');
@@ -286,12 +297,7 @@ export default function HomePage() {
   }
 
   async function handleExportConfirm() {
-    // Gather values from your state and inputs
-    const matchDate = document.getElementById('match-date-input').value;
-    const winner = document.getElementById('winner-input').value;
-    const blueTeam = document.getElementById('blue-team-input').value;
-    const redTeam = document.getElementById('red-team-input').value;
-
+    // Use state variables instead of getting values from DOM
     // Basic validation with specific field checking
     const missingFields = [];
     if (!matchDate) missingFields.push('Date');
@@ -403,6 +409,24 @@ export default function HomePage() {
         setLordTakenRed('');
         setNotes('');
         setPlaystyle('');
+        
+        // Reset form field states
+        setMatchDate('');
+        setWinner('');
+        setBlueTeam('');
+        setRedTeam('');
+        
+        // Reset banning and picks
+        setBanning({
+          blue1: [], blue2: [], red1: [], red2: []
+        });
+        setPicks({ blue: { 1: [], 2: [] }, red: { 1: [], 2: [] } });
+        
+        // Reset pick flow state
+        setCurrentPickSession(null);
+        setHeroPickerMode(null);
+        setPickerStep('lane');
+        setHeroPickerSelected([]);
         
         // Show refreshing state
         setIsRefreshing(true);
@@ -528,8 +552,11 @@ export default function HomePage() {
       </main>
       {/* Export Modal */}
       <ExportModal 
-        isOpen={modalState === 'export'}
-        onClose={() => setModalState('none')}
+        isOpen={modalState === 'export' || modalState === 'heroPicker'}
+        onClose={() => {
+          resetFormData();
+          setModalState('none');
+        }}
         onConfirm={handleExportConfirm}
         onReset={() => {
           resetFormData();
@@ -549,12 +576,23 @@ export default function HomePage() {
         setNotes={setNotes}
         playstyle={playstyle}
         setPlaystyle={setPlaystyle}
+        matchDate={matchDate}
+        setMatchDate={setMatchDate}
+        winner={winner}
+        setWinner={setWinner}
+        blueTeam={blueTeam}
+        setBlueTeam={setBlueTeam}
+        redTeam={redTeam}
+        setRedTeam={setRedTeam}
         onBanClick={(target) => { 
           setHeroPickerTarget(target); 
           setHeroPickerMode('ban'); 
           setModalState('heroPicker'); 
         }}
         onPickClick={(team, pickNum) => startPickFlow(team, pickNum)}
+        setBanning={setBanning}
+        setPicks={setPicks}
+        heroList={heroList}
       />
       {/* Lane Select Modal */}
       <LaneSelectModal

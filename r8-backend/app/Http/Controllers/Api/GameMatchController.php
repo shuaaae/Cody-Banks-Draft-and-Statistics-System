@@ -42,8 +42,8 @@ class GameMatchController extends Controller
             \Log::info('No team_id provided or team_id is null/empty, returning all matches');
         }
         
-        // Get matches ordered by date
-        $matches = $query->orderBy('match_date', 'desc')->get();
+        // Get matches ordered by date (oldest first)
+        $matches = $query->orderBy('match_date', 'asc')->get();
         
         \Log::info('Matches returned', [
             'count' => $matches->count(),

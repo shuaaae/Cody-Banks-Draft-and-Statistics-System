@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { FaSort, FaSortUp, FaSortDown, FaSearch, FaFilter, FaTrophy, FaBan, FaHandPaper, FaTimes } from 'react-icons/fa';
 
 const HeroStats = ({ isOpen, onClose, matches = [] }) => {
   // Get current team from localStorage
@@ -14,13 +14,19 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
   };
 
   const currentTeam = getCurrentTeam();
-  const [sortConfig, setSortConfig] = useState({ key: 'hero', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'pick', direction: 'desc' }); // Default sort by picks descending
   const [heroList, setHeroList] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  
+  // New state for enhanced features
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRole, setSelectedRole] = useState('All');
+  const [showOnlyUsedHeroes, setShowOnlyUsedHeroes] = useState(false);
+  const [viewMode, setViewMode] = useState('all'); // 'all', 'top', 'used'
 
   // Load heroes data
   useEffect(() => {
@@ -152,17 +158,41 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
     return Object.values(stats);
   }, [matches, heroList, selectedMonth]);
 
-  // Sort function
-  const handleSort = (key) => {
-    setSortConfig(prev => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
-    }));
-  };
+  // Filter and sort data
+  const filteredAndSortedStats = useMemo(() => {
+    let filtered = [...heroStats];
 
-  // Get sorted data
-  const sortedStats = useMemo(() => {
-    const sorted = [...heroStats].sort((a, b) => {
+    // Apply search filter
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(hero => 
+        hero.hero.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        hero.heroRole.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply role filter
+    if (selectedRole !== 'All') {
+      filtered = filtered.filter(hero => hero.heroRole === selectedRole);
+    }
+
+    // Apply "used heroes only" filter
+    if (showOnlyUsedHeroes) {
+      filtered = filtered.filter(hero => hero.pick > 0 || hero.ban > 0);
+    }
+
+    // Apply view mode filter
+    if (viewMode === 'top') {
+      // Show top 20 heroes by pick rate
+      filtered = filtered.filter(hero => parseFloat(hero.pickRate) > 0);
+      filtered = filtered.sort((a, b) => parseFloat(b.pickRate) - parseFloat(a.pickRate));
+      filtered = filtered.slice(0, 20);
+    } else if (viewMode === 'used') {
+      // Show only heroes that were picked or banned
+      filtered = filtered.filter(hero => hero.pick > 0 || hero.ban > 0);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
       let aVal = a[sortConfig.key];
       let bVal = b[sortConfig.key];
       
@@ -177,8 +207,22 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
       return 0;
     });
     
-    return sorted;
-  }, [heroStats, sortConfig]);
+    return filtered;
+  }, [heroStats, searchTerm, selectedRole, showOnlyUsedHeroes, viewMode, sortConfig]);
+
+  // Get unique roles for filter
+  const uniqueRoles = useMemo(() => {
+    const roles = [...new Set(heroList.map(hero => hero.role))];
+    return ['All', ...roles.sort()];
+  }, [heroList]);
+
+  // Sort function
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
 
   // Get sort icon
   const getSortIcon = (key) => {
@@ -186,6 +230,33 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
     return sortConfig.direction === 'asc' ? 
       <FaSortUp className="text-blue-400" /> : 
       <FaSortDown className="text-blue-400" />;
+  };
+
+  // Get performance indicator color
+  const getPerformanceColor = (value, type) => {
+    const numValue = parseFloat(value);
+    if (type === 'winRate') {
+      if (numValue >= 60) return 'text-green-400';
+      if (numValue >= 50) return 'text-yellow-400';
+      return 'text-red-400';
+    }
+    if (type === 'pickRate' || type === 'banRate') {
+      if (numValue >= 10) return 'text-green-400';
+      if (numValue >= 5) return 'text-yellow-400';
+      return 'text-gray-400';
+    }
+    return 'text-white';
+  };
+
+  // Get performance indicator
+  const getPerformanceIndicator = (hero) => {
+    const pickRate = parseFloat(hero.pickRate);
+    const winRate = parseFloat(hero.winRate);
+    
+    if (pickRate > 0 && winRate >= 60) return <FaTrophy className="text-yellow-400 text-xs" />;
+    if (pickRate > 0) return <FaHandPaper className="text-blue-400 text-xs" />;
+    if (parseFloat(hero.banRate) > 0) return <FaBan className="text-red-400 text-xs" />;
+    return null;
   };
 
      // Close month picker when clicking outside
@@ -220,13 +291,21 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
 
      return (
      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80 animate-fadeIn">
-       <div className="modal-box w-full max-w-7xl bg-[#23232a] rounded-2xl shadow-2xl p-8 max-h-[90vh] overflow-hidden animate-slideIn">
-                           {/* Header */}
-          <div className="flex justify-center items-center mb-6">
-            <h2 className="text-3xl font-bold text-white">
-              HEROES STATISTIC<span className="text-red-500">S</span>
-            </h2>
-          </div>
+       <div className="modal-box w-full max-w-7xl bg-[#23232a] rounded-2xl shadow-2xl p-8 max-h-[90vh] overflow-hidden animate-slideIn relative">
+         {/* Close Button - X Icon */}
+         <button
+           onClick={onClose}
+           className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-20"
+         >
+           <FaTimes className="w-6 h-6" />
+         </button>
+
+         {/* Header */}
+         <div className="flex justify-center items-center mb-6">
+           <h2 className="text-3xl font-bold text-white">
+             HEROES STATISTIC<span className="text-red-500">S</span>
+           </h2>
+         </div>
 
          {/* Modern Month Selector */}
          <div className="mb-6 flex items-center justify-between">
@@ -391,9 +470,84 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
             </div>
           </div>
 
+          {/* Enhanced Filters and Controls */}
+          <div className="mb-4 flex flex-wrap gap-4 items-center justify-between">
+            {/* Search and Filters */}
+            <div className="flex flex-wrap gap-3 items-center">
+              {/* Search */}
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search heroes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-[#181A20] text-white rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                />
+              </div>
 
+              {/* Role Filter */}
+              <div className="relative">
+                <FaFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  className="pl-10 pr-8 py-2 bg-[#181A20] text-white rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent appearance-none"
+                >
+                  {uniqueRoles.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+              </div>
 
-        {/* Table */}
+              {/* Used Heroes Only Toggle */}
+              <label className="flex items-center gap-2 text-white cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showOnlyUsedHeroes}
+                  onChange={(e) => setShowOnlyUsedHeroes(e.target.checked)}
+                  className="rounded border-gray-600 bg-[#181A20] text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm">Used Only</span>
+              </label>
+            </div>
+
+            {/* View Mode Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode('all')}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  viewMode === 'all' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-[#181A20] text-gray-400 hover:text-white'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setViewMode('top')}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  viewMode === 'top' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-[#181A20] text-gray-400 hover:text-white'
+                }`}
+              >
+                Top 20
+              </button>
+              <button
+                onClick={() => setViewMode('used')}
+                className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  viewMode === 'used' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-[#181A20] text-gray-400 hover:text-white'
+                }`}
+              >
+                Used
+              </button>
+            </div>
+          </div>
+
+        {/* Enhanced Table */}
         <div className="overflow-x-auto" style={{ maxHeight: '45vh' }}>
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
@@ -464,10 +618,10 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
               </tr>
             </thead>
             <tbody>
-              {sortedStats.map((hero, index) => (
+              {filteredAndSortedStats.map((hero, index) => (
                 <tr 
                   key={hero.hero}
-                  className={`transition-colors duration-200 ${
+                  className={`transition-colors duration-200 hover:bg-gray-700/30 ${
                     index % 2 === 0 ? 'bg-yellow-500/20' : 'bg-gray-600/20'
                   }`}
                 >
@@ -489,6 +643,10 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
                         >
                           {hero.hero.substring(0, 2)}
                         </div>
+                        {/* Performance indicator */}
+                        <div className="absolute -top-1 -right-1">
+                          {getPerformanceIndicator(hero)}
+                        </div>
                       </div>
                       <div>
                         <div className="font-semibold text-white">{hero.hero}</div>
@@ -496,23 +654,35 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-center text-white font-semibold">
-                    {hero.pick}
+                  <td className="py-3 px-4 text-center">
+                    <span className={`font-semibold ${parseFloat(hero.pick) > 0 ? 'text-blue-400' : 'text-gray-400'}`}>
+                      {hero.pick}
+                    </span>
                   </td>
-                  <td className="py-3 px-4 text-center text-white font-semibold">
-                    {hero.pickRate}%
+                  <td className="py-3 px-4 text-center">
+                    <span className={`font-semibold ${getPerformanceColor(hero.pickRate, 'pickRate')}`}>
+                      {hero.pickRate}%
+                    </span>
                   </td>
-                  <td className="py-3 px-4 text-center text-white font-semibold">
-                    {hero.ban}
+                  <td className="py-3 px-4 text-center">
+                    <span className={`font-semibold ${parseFloat(hero.ban) > 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                      {hero.ban}
+                    </span>
                   </td>
-                  <td className="py-3 px-4 text-center text-white font-semibold">
-                    {hero.banRate}%
+                  <td className="py-3 px-4 text-center">
+                    <span className={`font-semibold ${getPerformanceColor(hero.banRate, 'banRate')}`}>
+                      {hero.banRate}%
+                    </span>
                   </td>
-                  <td className="py-3 px-4 text-center text-white font-semibold">
-                    {hero.win}
+                  <td className="py-3 px-4 text-center">
+                    <span className={`font-semibold ${parseFloat(hero.win) > 0 ? 'text-green-400' : 'text-gray-400'}`}>
+                      {hero.win}
+                    </span>
                   </td>
-                  <td className="py-3 px-4 text-center text-white font-semibold">
-                    {hero.winRate}%
+                  <td className="py-3 px-4 text-center">
+                    <span className={`font-semibold ${getPerformanceColor(hero.winRate, 'winRate')}`}>
+                      {hero.winRate}%
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -520,10 +690,10 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
           </table>
         </div>
 
-        {/* Footer */}
-        <div className="mt-6 flex justify-between items-center">
-          <div className="text-sm text-gray-400">
-            Showing {sortedStats.length} heroes from {matches.filter(match => {
+        {/* Enhanced Footer */}
+        <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div className="text-sm text-gray-400 flex-1">
+            Showing {filteredAndSortedStats.length} of {heroStats.length} heroes from {matches.filter(match => {
               const matchDate = new Date(match.match_date);
               const matchMonth = `${matchDate.getFullYear()}-${String(matchDate.getMonth() + 1).padStart(2, '0')}`;
               return matchMonth === selectedMonth;
@@ -531,13 +701,10 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
               year: 'numeric', 
               month: 'long' 
             })}
+            {searchTerm && ` • Filtered by "${searchTerm}"`}
+            {selectedRole !== 'All' && ` • Role: ${selectedRole}`}
+            {showOnlyUsedHeroes && ' • Used heroes only'}
           </div>
-          <button
-            onClick={onClose}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>

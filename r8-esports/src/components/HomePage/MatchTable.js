@@ -192,12 +192,56 @@ export default function MatchTable({
                       `transition-all duration-300 ease-out cursor-pointer rounded-lg ` +
                       (hoveredMatchId === match.id ? 'bg-blue-900/40 shadow-lg' : 'hover:bg-blue-900/20 hover:shadow-md')
                     }
-                    onMouseEnter={() => setHoveredMatchId(match.id)}
-                    onMouseLeave={() => setHoveredMatchId(null)}
+                    onMouseEnter={(e) => {
+                      // Only trigger if hovering over the table cell background (not interactive elements)
+                      const target = e.target;
+                      const isInteractive = target.closest('.hero-icon, .team-label, .delete-button, button, img, span');
+                      
+                      // Check if we're hovering over a table cell background
+                      const isTableCell = target.tagName === 'TD' || target.closest('td');
+                      const isBackground = !isInteractive && isTableCell;
+                      
+                      if (isBackground) {
+                        setHoveredMatchId(match.id);
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      // Clear when leaving the row entirely
+                      const relatedTarget = e.relatedTarget;
+                      const isStillInRow = relatedTarget && relatedTarget.closest && relatedTarget.closest(`[data-match-id="${match.id}"]`);
+                      
+                      if (!isStillInRow) {
+                        setHoveredMatchId(null);
+                      }
+                    }}
                   >
                     {idx === 0 && (
                       <>
-                        <td className="py-3 px-4 text-center align-middle" rowSpan={match.teams.length}>{match.match_date}</td>
+                        <td className="py-3 px-4 text-center align-middle" rowSpan={match.teams.length}>
+                          <div className="inline-flex items-center justify-center px-4 py-2 font-bold text-sm transition-all duration-200 hover:scale-110 hover:shadow-xl" 
+                               style={{ 
+                                 background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+                                 color: '#e2e8f0',
+                                 boxShadow: '0 4px 20px rgba(15, 52, 96, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                                 border: '2px solid #1e3a8a',
+                                 borderRadius: '8px',
+                                 textShadow: '0 2px 4px rgba(0, 0, 0, 0.7)',
+                                 fontWeight: 'bold',
+                                 letterSpacing: '0.5px',
+                                 position: 'relative',
+                                 overflow: 'hidden'
+                               }}>
+                            <div style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: '1px',
+                              background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.6), transparent)'
+                            }} />
+                            {match.match_date}
+                          </div>
+                        </td>
                         <td className="py-3 px-4 text-center align-middle" rowSpan={match.teams.length}>
                           <span className="inline-block text-white px-4 py-1 rounded-full font-bold shadow-md" style={{ background: '#22c55e' }}>
                             {match.winner}
@@ -207,14 +251,14 @@ export default function MatchTable({
                     )}
                     <td className="py-3 px-1 text-center font-bold align-middle">
                       {team.team_color === 'blue' ? (
-                        <span className="relative group inline-block bg-blue-500 text-white px-3 py-1 rounded font-bold cursor-pointer focus:outline-none" tabIndex={0} aria-label="1st Pick">
+                        <span className="team-label relative group inline-block bg-blue-500 text-white px-3 py-1 rounded font-bold cursor-pointer focus:outline-none" tabIndex={0} aria-label="1st Pick">
                           {team.team}
                           <span className="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-max px-3 py-1 bg-black text-sm text-white rounded shadow-lg opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-200 z-10 whitespace-nowrap">
                             1st Pick
                           </span>
                         </span>
                       ) : (
-                        <span className="inline-block bg-red-500 text-white px-3 py-1 rounded font-bold">
+                        <span className="team-label inline-block bg-red-500 text-white px-3 py-1 rounded font-bold">
                           {team.team}
                         </span>
                       )}
@@ -225,7 +269,7 @@ export default function MatchTable({
                           ? team.banning_phase1.map(heroName => {
                               const hero = heroMap.get(heroName);
                               return hero ? (
-                                <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <div key={heroName} className="hero-icon" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                   <OptimizedBanHeroIcon heroName={heroName} heroMap={heroMap} />
                                   <span style={{ fontSize: '10px', color: '#f87171', fontWeight: 'bold' }}>{heroName}</span>
                                 </div>
@@ -241,7 +285,7 @@ export default function MatchTable({
                               const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                               const hero = heroMap.get(heroName);
                               return hero ? (
-                                <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <div key={heroName} className="hero-icon" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                   <OptimizedHeroImage heroName={heroName} size={56} heroMap={heroMap} />
                                   <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 'bold' }}>{heroName}</span>
                                 </div>
@@ -256,7 +300,7 @@ export default function MatchTable({
                           ? team.banning_phase2.map(heroName => {
                               const hero = heroMap.get(heroName);
                               return hero ? (
-                                <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <div key={heroName} className="hero-icon" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                   <OptimizedBanHeroIcon heroName={heroName} heroMap={heroMap} />
                                   <span style={{ fontSize: '10px', color: '#f87171', fontWeight: 'bold' }}>{heroName}</span>
                                 </div>
@@ -272,7 +316,7 @@ export default function MatchTable({
                               const heroName = typeof pickObj === 'string' ? pickObj : pickObj.hero;
                               const hero = heroMap.get(heroName);
                               return hero ? (
-                                <div key={heroName} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <div key={heroName} className="hero-icon" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                   <OptimizedHeroImage heroName={heroName} size={56} heroMap={heroMap} />
                                   <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 'bold' }}>{heroName}</span>
                                 </div>
@@ -286,7 +330,7 @@ export default function MatchTable({
                      <td className="py-3 px-4 text-center align-middle" rowSpan={match.teams.length}>
                        <button
                          onClick={() => onDeleteMatch(match)}
-                         className="text-red-500 hover:text-red-700 focus:outline-none"
+                         className="delete-button text-red-500 hover:text-red-700 focus:outline-none"
                          title="Delete match"
                        >
                          <FaTrash size={20} />

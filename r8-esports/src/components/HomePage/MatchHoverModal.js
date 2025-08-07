@@ -69,12 +69,44 @@ const OptimizedHeroImage = React.memo(({ heroName, size = 40, isBan = false, cla
 // Optimized ban hero icon component
 const OptimizedBanHeroIcon = React.memo(({ heroName, heroMap }) => {
   const [imageError, setImageError] = React.useState(false);
+  
+  // Handle null/undefined heroName
+  if (!heroName) {
+    return (
+      <div style={{ 
+        width: 40, 
+        height: 40, 
+        borderRadius: '50%', 
+        background: '#23283a', 
+        border: '2px solid #f87171', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        opacity: 0.5
+      }} />
+    );
+  }
+  
   const hero = heroMap.get(heroName);
   const imagePath = hero ? `/heroes/${hero.role}/${hero.image.replace('.png', '.webp')}` : null;
   
   if (!hero || !imagePath) {
     return (
-      <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#23283a', border: '2px solid #f87171', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+      <div style={{ 
+        width: 40, 
+        height: 40, 
+        borderRadius: '50%', 
+        background: '#23283a', 
+        border: '2px solid #f87171', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        color: '#f87171',
+        fontSize: '12px',
+        fontWeight: 'bold'
+      }}>
+        {heroName}
+      </div>
     );
   }
   
@@ -202,7 +234,7 @@ export default function MatchHoverModal({ match, heroMap, isVisible }) {
           }}>{blueTeam?.team || 'Team 1'}</div>
           {/* Bans for Blue Team */}
           <div style={{ display: 'flex', flexDirection: 'row', marginBottom: 12, marginLeft: 0, justifyContent: 'flex-start', gap: 8 }}>
-            {getBans(blueTeam).filter(heroName => heroName).map((heroName, idx) => {
+            {getBans(blueTeam).map((heroName, idx) => {
               return (
                 <div key={idx} style={{ margin: 0 }}>
                   <OptimizedBanHeroIcon heroName={heroName} heroMap={heroMap} />
