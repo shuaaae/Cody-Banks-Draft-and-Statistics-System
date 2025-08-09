@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
-import { addDays, format } from 'date-fns';
+import { addDays, format, startOfWeek } from 'date-fns';
 import PageTitle from '../components/PageTitle';
 import Header from '../components/Header';
 import useSessionTimeout from '../hooks/useSessionTimeout';
@@ -13,7 +13,8 @@ import {
   SessionTimeoutModal,
   FullNoteModal,
   SuccessModal,
-  ProfileModal
+  ProfileModal,
+  ObjectiveStatsModal
 } from '../components/WeeklyReport';
 
 function getProgressionScore(win, lose) {
@@ -83,6 +84,13 @@ export default function WeeklyReport() {
   const [showFullNoteModal, setShowFullNoteModal] = useState(false);
   const [selectedNote, setSelectedNote] = useState(null);
   const [sortOrder, setSortOrder] = useState('newest');
+  const [showObjectiveModal, setShowObjectiveModal] = useState(false);
+  const [objectiveType, setObjectiveType] = useState('turtle');
+  const [objectiveRows, setObjectiveRows] = useState([]);
+  const [objectiveAnalysis, setObjectiveAnalysis] = useState({ days: 0, totalRespawns: 0, totalTakes: 0, percentage: 0 });
+  const [objectiveHistory, setObjectiveHistory] = useState({}); // { weekKey: { turtleRows, lordRows } }
+  const [objectiveWeeks, setObjectiveWeeks] = useState([]);
+  const [selectedObjectiveWeek, setSelectedObjectiveWeek] = useState('');
 
   // User session timeout: 30 minutes
   useSessionTimeout(30, 'currentUser', '/', (timeoutMinutes) => {
@@ -231,27 +239,17 @@ export default function WeeklyReport() {
     });
   };
 
-  // Helper to get current team from localStorage
-  function getCurrentTeam(data) {
+  // Helper to get current team strictly from localStorage active team
+  function getCurrentTeam() {
     try {
       const latestTeam = JSON.parse(localStorage.getItem('latestTeam'));
       if (latestTeam && latestTeam.teamName) {
-        console.log('Found team in localStorage:', latestTeam.teamName);
         return latestTeam.teamName;
       }
     } catch (error) {
-      console.log('Error parsing latestTeam from localStorage:', error);
+      console.warn('Error parsing latestTeam from localStorage:', error);
     }
-    
-    for (const match of data) {
-      if (match.teams && match.teams.length > 0) {
-        console.log('Using fallback team:', match.teams[0].team);
-        return match.teams[0].team;
-      }
-    }
-    
-    console.log('No team found, will show all matches');
-    return '';
+    return null; // no active team
   }
 
   const startDate = format(dateRange[0].startDate, 'yyyy-MM-dd');
@@ -265,7 +263,7 @@ export default function WeeklyReport() {
       .then(data => {
         console.log('All matches data:', data);
         
-        const currentTeam = getCurrentTeam(data);
+        const currentTeam = getCurrentTeam();
         console.log('Current team:', currentTeam);
         
         const dateFiltered = data.filter(match => {
@@ -275,14 +273,9 @@ export default function WeeklyReport() {
         
         console.log('Date filtered matches:', dateFiltered);
         
-        let filtered;
-        if (currentTeam && currentTeam.trim() !== '') {
-          filtered = dateFiltered.filter(match => 
-            match.teams && match.teams.some(t => t.team === currentTeam)
-          );
-        } else {
-          filtered = dateFiltered;
-        }
+        const filtered = (currentTeam && currentTeam.trim() !== '')
+          ? dateFiltered.filter(match => match.teams && match.teams.some(t => t.team === currentTeam))
+          : [];
         
         console.log('Final filtered matches:', filtered);
         
@@ -321,6 +314,84 @@ export default function WeeklyReport() {
         
         console.log('Progression data:', progression);
         setProgressionData(progression);
+        // Precompute objective rows for turtle and lord
+        const toRows = (arr, type) => arr
+          .sort((a,b)=> new Date(a.match_date)-new Date(b.match_date))
+          .map(m => {
+            const total = (type === 'turtle' ? (m.turtle_taken || '0-0') : (m.lord_taken || '0-0'));
+            const [blueStr, redStr] = String(total).split('-');
+            const blue = parseInt(blueStr || '0', 10);
+            const red = parseInt(redStr || '0', 10);
+            // Determine which side is "our" based on active team and match teams
+            let our = blue;
+            let opp = red;
+            if (currentTeam && m.teams && Array.isArray(m.teams)) {
+              const ourTeamEntry = m.teams.find(t => t.team === currentTeam);
+              if (ourTeamEntry) {
+                if (ourTeamEntry.team_color === 'red') {
+                  our = red;
+                  opp = blue;
+                } else {
+                  // blue side
+                  our = blue;
+                  opp = red;
+                }
+              }
+            }
+            return { date: new Date(m.match_date).toISOString().slice(0,10), our, opp, label: `${blue}-${red}` };
+          });
+        const turtleRows = toRows(filtered, 'turtle');
+        // Store last computed in state for modal use
+        setObjectiveRows(turtleRows);
+        // Compute analysis helper
+        const makeAnalysis = (rows, respawnsPerMatch = 3) => {
+          const days = new Set(rows.map(r => r.date)).size;
+          const totalTakes = rows.reduce((s, r) => s + r.our, 0);
+          const totalRespawns = rows.length * respawnsPerMatch; // basic assumption from sample
+          const percentage = totalRespawns === 0 ? 0 : (totalTakes / totalRespawns) * 100;
+          return { days, totalRespawns, totalTakes, percentage };
+        };
+        setObjectiveAnalysis(makeAnalysis(turtleRows));
+        // Build weekly history from all matches (not just filtered) using ISO week starting Monday
+        const groupByWeek = (arr) => {
+          const groups = {};
+          arr.forEach(m => {
+            const wkStart = startOfWeek(new Date(m.match_date), { weekStartsOn: 1 });
+            const key = format(wkStart, 'yyyy-MM-dd');
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(m);
+          });
+          return groups;
+        };
+        const weeklyGroups = groupByWeek(filtered);
+        const history = {};
+        Object.keys(weeklyGroups).forEach(weekKey => {
+          const wkArr = weeklyGroups[weekKey];
+          const wkTurtle = toRows(wkArr, 'turtle');
+          const wkLord = toRows(wkArr, 'lord');
+          history[weekKey] = {
+            turtleRows: wkTurtle,
+            lordRows: wkLord,
+            turtleAnalysis: makeAnalysis(wkTurtle, 3),
+            lordAnalysis: makeAnalysis(wkLord, 2)
+          };
+        });
+        const weekKeys = Object.keys(history).sort();
+        setObjectiveHistory(history);
+        setObjectiveWeeks(weekKeys);
+        setSelectedObjectiveWeek(weekKeys[weekKeys.length - 1] || '');
+        // Expose a function on window for opening with correct type
+        window.__openObjectiveStats = (type) => {
+          const latestKey = weekKeys[weekKeys.length - 1];
+          const bundle = history[latestKey] || { turtleRows: [], lordRows: [], turtleAnalysis: {days:0,totalRespawns:0,totalTakes:0,percentage:0}, lordAnalysis: {days:0,totalRespawns:0,totalTakes:0,percentage:0} };
+          const rows = type === 'lord' ? bundle.lordRows : bundle.turtleRows;
+          const analysis = type === 'lord' ? bundle.lordAnalysis : bundle.turtleAnalysis;
+          setSelectedObjectiveWeek(latestKey);
+          setObjectiveRows(rows);
+          setObjectiveAnalysis(analysis);
+          setObjectiveType(type);
+          setShowObjectiveModal(true);
+        };
         setLoading(false);
       })
       .catch(error => {
@@ -344,12 +415,28 @@ export default function WeeklyReport() {
           <div className="w-full flex flex-row items-stretch gap-4">
             {/* Chart container */}
             <div className="bg-[#23232a] rounded-xl shadow-lg p-8 flex-1 flex flex-col items-center">
-              <DateRangePicker 
-                dateRange={dateRange}
-                setDateRange={setDateRange}
-                showPicker={showPicker}
-                setShowPicker={setShowPicker}
-              />
+              <div className="w-full flex items-center justify-between mb-3 gap-3">
+                <DateRangePicker 
+                  dateRange={dateRange}
+                  setDateRange={setDateRange}
+                  showPicker={showPicker}
+                  setShowPicker={setShowPicker}
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                    onClick={() => window.__openObjectiveStats && window.__openObjectiveStats('turtle')}
+                  >
+                    Turtle Statistics
+                  </button>
+                  <button
+                    className="px-3 py-2 rounded bg-purple-600 hover:bg-purple-700 text-white text-sm"
+                    onClick={() => window.__openObjectiveStats && window.__openObjectiveStats('lord')}
+                  >
+                    Lord Statistics
+                  </button>
+                </div>
+              </div>
               <ProgressionChart 
                 progressionData={progressionData}
                 loading={loading}
@@ -402,6 +489,26 @@ export default function WeeklyReport() {
         isOpen={showFullNoteModal}
         onClose={() => setShowFullNoteModal(false)}
         note={selectedNote}
+      />
+
+      <ObjectiveStatsModal
+        isOpen={showObjectiveModal}
+        onClose={() => setShowObjectiveModal(false)}
+        type={objectiveType}
+        rows={objectiveRows}
+        analysis={objectiveAnalysis}
+        weeks={objectiveWeeks}
+        selectedWeek={selectedObjectiveWeek}
+        onSelectWeek={(weekKey, type) => {
+          setSelectedObjectiveWeek(weekKey);
+          const bundle = objectiveHistory[weekKey];
+          if (!bundle) return;
+          const rows = type === 'lord' ? bundle.lordRows : bundle.turtleRows;
+          const analysis = type === 'lord' ? bundle.lordAnalysis : bundle.turtleAnalysis;
+          setObjectiveRows(rows);
+          setObjectiveAnalysis(analysis);
+          setObjectiveType(type);
+        }}
       />
     </div>
   );

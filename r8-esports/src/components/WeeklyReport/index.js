@@ -7,3 +7,4 @@ export { default as SessionTimeoutModal } from './SessionTimeoutModal';
 export { default as FullNoteModal } from './FullNoteModal';
 export { default as SuccessModal } from './SuccessModal';
 export { default as ProfileModal } from './ProfileModal'; 
+export { default as ObjectiveStatsModal } from './ObjectiveStatsModal';
