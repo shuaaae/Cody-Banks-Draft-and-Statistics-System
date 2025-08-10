@@ -153,6 +153,40 @@ const PerformanceModal = ({
     });
   }
 
+  // Arrow key navigation for hero evaluation grid
+  const handleHeroKeyDown = useCallback((e, currentColumn, currentRow) => {
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    
+    e.preventDefault();
+    
+    let nextColumn = currentColumn;
+    let nextRow = currentRow;
+    
+    switch (e.key) {
+      case 'ArrowLeft':
+        nextColumn = Math.max(0, currentColumn - 1);
+        break;
+      case 'ArrowRight':
+        nextColumn = Math.min(2, currentColumn + 1);
+        break;
+      case 'ArrowUp':
+        nextRow = Math.max(0, currentRow - 1);
+        break;
+      case 'ArrowDown':
+        nextRow = Math.min(9, currentRow + 1);
+        break;
+      default:
+        // No action needed for other keys
+        return;
+    }
+    
+    // Focus the target input
+    const targetInput = document.querySelector(`[data-hero-input="${nextColumn}-${nextRow}"]`);
+    if (targetInput) {
+      targetInput.focus();
+    }
+  }, []);
+
   function updatePlayerField(field, value) {
     setPlayerByDate(prev => {
       const current = { ...(prev[selectedDate] || defaultPlayerEval), [field]: value };
@@ -257,8 +291,8 @@ const PerformanceModal = ({
   if (!isOpen || !modalInfo) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-90" style={{ pointerEvents: 'auto' }}>
-      <div className="bg-[#23232a] rounded-2xl shadow-2xl p-6 min-w-[1400px] max-w-[95vw] h-[800px] flex flex-col z-[10000]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-90 animate-fadeIn" style={{ pointerEvents: 'auto' }}>
+      <div className="bg-[#23232a] rounded-2xl shadow-2xl p-6 min-w-[1400px] max-w-[95vw] h-[800px] flex flex-col z-[10000] animate-slideInUp">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-3 relative" ref={dateMenuRef}>
             <h2 className="text-white text-xl font-bold"><span className="text-blue-400">{modalInfo.player.name}</span> - Performance Analysis</h2>
@@ -365,6 +399,8 @@ const PerformanceModal = ({
                       type="text"
                       value={heroState.blackHeroes[index]}
                       onChange={(e) => updateHeroArray('blackHeroes', index, e.target.value)}
+                      onKeyDown={(e) => handleHeroKeyDown(e, 0, index)}
+                      data-hero-input={`0-${index}`}
                       className="px-1 py-1 bg-black text-white rounded text-xs text-center"
                       placeholder="Hero"
                     />
@@ -372,6 +408,8 @@ const PerformanceModal = ({
                       type="text"
                       value={heroState.blueHeroes[index]}
                       onChange={(e) => updateHeroArray('blueHeroes', index, e.target.value)}
+                      onKeyDown={(e) => handleHeroKeyDown(e, 1, index)}
+                      data-hero-input={`1-${index}`}
                       className="px-1 py-1 bg-blue-600 text-white rounded text-xs text-center"
                       placeholder="Hero"
                     />
@@ -379,6 +417,8 @@ const PerformanceModal = ({
                       type="text"
                       value={heroState.redHeroes[index]}
                       onChange={(e) => updateHeroArray('redHeroes', index, e.target.value)}
+                      onKeyDown={(e) => handleHeroKeyDown(e, 2, index)}
+                      data-hero-input={`2-${index}`}
                       className="px-1 py-1 bg-red-600 text-white rounded text-xs text-center"
                       placeholder="Hero"
                     />

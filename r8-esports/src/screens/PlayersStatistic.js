@@ -1,14 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import navbarBg from '../assets/navbarbackground.jpg';
 import { useNavigate } from 'react-router-dom';
-import defaultPlayer from '../assets/default.png'; import { Bar } from 'react-chartjs-2';
+import defaultPlayer from '../assets/default.png';
 import { Chart, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Legend, Tooltip } from 'chart.js';
 import PageTitle from '../components/PageTitle';
 import Header from '../components/Header';
 import ProfileModal from '../components/ProfileModal';
 import useSessionTimeout from '../hooks/useSessionTimeout';
 import {
-  PlayerCard,
   TeamDisplayCard,
   PlayerModal,
   PerformanceModal,
@@ -664,15 +662,43 @@ function PlayersStatistic() {
       if (response.ok) {
         const data = await response.json();
         
-        // Cache the uploaded image using unique identifier
-        if (data.photo_path) {
-          setImageCache(prev => ({
-            ...prev,
-            [pendingPhoto.playerIdentifier]: data.photo_path
-          }));
-          // Also cache in localStorage for persistence
-          localStorage.setItem(`playerPhoto_${pendingPhoto.playerIdentifier}`, data.photo_path);
-        }
+        // Force clear any existing cached images for this player
+        const playerIdentifier = pendingPhoto.playerIdentifier;
+        const playerNameOnly = pendingPhoto.playerName;
+        
+        // Clear from memory cache
+        setImageCache(prev => {
+          const newCache = { ...prev };
+          // Remove all possible cache keys for this player
+          delete newCache[playerIdentifier];
+          delete newCache[playerNameOnly];
+          // Also remove any other variations that might exist
+          Object.keys(newCache).forEach(key => {
+            if (key.startsWith(pendingPhoto.playerName)) {
+              delete newCache[key];
+            }
+          });
+          return newCache;
+        });
+        
+        // Clear from localStorage cache
+        localStorage.removeItem(`playerPhoto_${playerIdentifier}`);
+        localStorage.removeItem(`playerPhoto_${playerNameOnly}`);
+        
+        // Force a small delay to ensure cache is cleared, then set new image
+        setTimeout(() => {
+          if (data.photo_path) {
+            // Add timestamp to prevent browser caching
+            const timestampedPath = `${data.photo_path}?t=${Date.now()}`;
+            
+            setImageCache(prev => ({
+              ...prev,
+              [playerIdentifier]: timestampedPath
+            }));
+            // Cache in localStorage for persistence
+            localStorage.setItem(`playerPhoto_${playerIdentifier}`, timestampedPath);
+          }
+        }, 100);
         
         setPlayers(prev => {
           // Find player by name and role, or by name only if role is null
@@ -685,11 +711,12 @@ function PlayersStatistic() {
           }
           
           if (idx !== -1) {
-            // Update existing player
+            // Update existing player with timestamped path
+            const timestampedPath = data.photo_path ? `${data.photo_path}?t=${Date.now()}` : data.photo_path;
             return prev.map(p =>
               (p.name === pendingPhoto.playerName && 
                (pendingPhoto.playerRole === null ? p.role === null : p.role === pendingPhoto.playerRole)) 
-                ? { ...p, photo: data.photo_path } 
+                ? { ...p, photo: timestampedPath } 
                 : p
             );
           } else {
@@ -697,15 +724,17 @@ function PlayersStatistic() {
             return [...prev, { ...data.player, photo: data.photo_path }];
           }
         });
-                 setTeamPlayers(prev => {
+        
+        setTeamPlayers(prev => {
            if (!prev) return prev;
            const playersArray = prev.players_data || prev.players;
            if (!playersArray) return prev;
            
+           const timestampedPath = data.photo_path ? `${data.photo_path}?t=${Date.now()}` : data.photo_path;
            const updatedPlayers = playersArray.map(p =>
              (p.name === pendingPhoto.playerName && 
               (pendingPhoto.playerRole === null ? p.role === null : p.role === pendingPhoto.playerRole)) 
-               ? { ...p, photo: data.photo_path } 
+               ? { ...p, photo: timestampedPath } 
                : p
            );
            
@@ -797,10 +826,31 @@ function PlayersStatistic() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
+    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ 
+      background: `
+        radial-gradient(ellipse at top, rgba(147, 51, 234, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at bottom, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at left, rgba(16, 185, 129, 0.05) 0%, transparent 50%),
+        linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 25%, #16213e 50%, #0f1419 100%)
+      ` 
+    }}>
       <PageTitle title="Players Statistic" />
       <style>{scrollbarHideStyles}</style>
       
+      {/* Animated Background Particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute w-2 h-2 bg-cyan-400 rounded-full opacity-20 animate-pulse" 
+             style={{ top: '10%', left: '20%', animationDelay: '0s', animationDuration: '3s' }}></div>
+        <div className="absolute w-1 h-1 bg-purple-400 rounded-full opacity-30 animate-pulse" 
+             style={{ top: '30%', left: '80%', animationDelay: '1s', animationDuration: '4s' }}></div>
+        <div className="absolute w-3 h-3 bg-blue-400 rounded-full opacity-15 animate-pulse" 
+             style={{ top: '60%', left: '10%', animationDelay: '2s', animationDuration: '5s' }}></div>
+        <div className="absolute w-2 h-2 bg-emerald-400 rounded-full opacity-25 animate-pulse" 
+             style={{ top: '80%', left: '70%', animationDelay: '0.5s', animationDuration: '3.5s' }}></div>
+        <div className="absolute w-1 h-1 bg-pink-400 rounded-full opacity-20 animate-pulse" 
+             style={{ top: '20%', left: '60%', animationDelay: '1.5s', animationDuration: '4.5s' }}></div>
+      </div>
+
       {/* Header Component */}
       <Header 
         currentUser={currentUser}
@@ -808,34 +858,46 @@ function PlayersStatistic() {
         onShowProfile={() => setShowProfileModal(true)}
       />
 
-            {/* Main Content */}
-      <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center flex-1" style={{ marginTop: -130 }}>
+      {/* Main Content */}
+      <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center flex-1 relative z-10 px-4" style={{ marginTop: -80 }}>
         {/* Team Display Card */}
-        <TeamDisplayCard teamName={getCurrentTeamName()} />
+        <div className="w-full max-w-7xl mx-auto mb-4 mt-12">
+          <TeamDisplayCard teamName={getCurrentTeamName()} />
+        </div>
         
         {/* Loading Spinner */}
         {isLoadingTeam && (
-          <div className="flex flex-col items-center justify-center mb-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-            <p className="text-white text-lg">Loading team data...</p>
+          <div className="flex flex-col items-center justify-center mb-12">
+            <div className="relative">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-transparent border-t-cyan-400 border-r-purple-400 shadow-lg shadow-cyan-400/20"></div>
+              <div className="absolute inset-0 animate-spin rounded-full h-16 w-16 border-4 border-transparent border-b-blue-400 border-l-emerald-400" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+            </div>
+            <div className="mt-6 text-center">
+              <p className="text-white text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Loading team data...</p>
+              <div className="mt-2 h-1 w-32 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 animate-pulse"></div>
+              </div>
+            </div>
           </div>
         )}
         
         {/* Player Grid */}
         {!isLoadingTeam && (
-          <PlayerGrid
-            teamPlayers={teamPlayers}
-            players={players}
-            lanePlayers={lanePlayers}
-            LANES={LANES}
-            PLAYER={PLAYER}
-            getPlayerNameForLane={getPlayerNameForLane}
-            getRoleByLaneKey={getRoleByLaneKey}
-            getHeroForLaneByLaneKey={getHeroForLaneByLaneKey}
-            getPlayerIdentifier={getPlayerIdentifier}
-            getPlayerPhoto={getPlayerPhoto}
-            onPlayerClick={setModalInfo}
-          />
+          <div className="w-full max-w-7xl mx-auto">
+            <PlayerGrid
+              teamPlayers={teamPlayers}
+              players={players}
+              lanePlayers={lanePlayers}
+              LANES={LANES}
+              PLAYER={PLAYER}
+              getPlayerNameForLane={getPlayerNameForLane}
+              getRoleByLaneKey={getRoleByLaneKey}
+              getHeroForLaneByLaneKey={getHeroForLaneByLaneKey}
+              getPlayerIdentifier={getPlayerIdentifier}
+              getPlayerPhoto={getPlayerPhoto}
+              onPlayerClick={setModalInfo}
+            />
+          </div>
         )}
       </div>
 

@@ -91,11 +91,35 @@ export default function WeeklyReport() {
   const [objectiveHistory, setObjectiveHistory] = useState({}); // { weekKey: { turtleRows, lordRows } }
   const [objectiveWeeks, setObjectiveWeeks] = useState([]);
   const [selectedObjectiveWeek, setSelectedObjectiveWeek] = useState('');
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
 
   // User session timeout: 30 minutes
   useSessionTimeout(30, 'currentUser', '/', (timeoutMinutes) => {
     setShowSessionTimeoutModal(true);
   });
+
+  // Handle scroll for header visibility
+  useEffect(() => {
+    let lastScroll = 0;
+    
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (currentScrollY < lastScroll || currentScrollY <= 5) {
+        // Scrolling up or at very top - show header
+        setIsHeaderVisible(true);
+      } else if (currentScrollY > lastScroll && currentScrollY > 5) {
+        // Hide immediately when scrolling down past 5px
+        setIsHeaderVisible(false);
+      }
+      
+      lastScroll = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []); // Empty dependency array to avoid re-creating
 
   // Check if user is logged in
   useEffect(() => {
@@ -401,18 +425,33 @@ export default function WeeklyReport() {
   }, [startDate, endDate]);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
+    <div className="min-h-screen" style={{ background: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(${navbarBg}) center/cover, #181A20` }}>
       <PageTitle title="Weekly Report" />
       
-      <Header 
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        onShowProfile={() => setShowProfileModal(true)}
-      />
+      {/* Fixed Header with Solid Background */}
+      <div 
+        className={`fixed top-0 left-0 right-0 z-50 bg-gray-900 ${
+          isHeaderVisible 
+            ? 'translate-y-0 opacity-100' 
+            : '-translate-y-full opacity-0'
+        }`}
+        style={{ 
+          background: '#1a1a1a',
+          borderBottom: '1px solid rgba(59, 130, 246, 0.3)',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.5)'
+        }}
+      >
+        <Header 
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onShowProfile={() => setShowProfileModal(true)}
+        />
+      </div>
 
-      <div className="flex flex-col h-screen overflow-hidden" style={{ marginTop: 80 }}>
-        <div className="w-full flex flex-col items-start pl-8 pr-8 overflow-hidden">
-          <div className="w-full flex flex-row items-stretch gap-4">
+      {/* Main Content - Fixed padding so content goes under header */}
+      <div className="pt-20 pb-8 min-h-screen">
+        <div className="w-full flex flex-col items-start pl-8 pr-8">
+          <div className="w-full flex flex-row items-start gap-4">
             {/* Chart container */}
             <div className="bg-[#23232a] rounded-xl shadow-lg p-8 flex-1 flex flex-col items-center">
               <div className="w-full flex items-center justify-between mb-3 gap-3">
@@ -423,6 +462,16 @@ export default function WeeklyReport() {
                   setShowPicker={setShowPicker}
                 />
                 <div className="flex items-center gap-2">
+                  <button
+                    className={`px-3 py-2 rounded text-white text-sm transition-colors ${
+                      isDrawingMode 
+                        ? 'bg-green-600 hover:bg-green-700' 
+                        : 'bg-orange-600 hover:bg-orange-700'
+                    }`}
+                    onClick={() => setIsDrawingMode(!isDrawingMode)}
+                  >
+                    {isDrawingMode ? 'Exit Drawing' : 'Coach Feedback'}
+                  </button>
                   <button
                     className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm"
                     onClick={() => window.__openObjectiveStats && window.__openObjectiveStats('turtle')}
@@ -441,6 +490,7 @@ export default function WeeklyReport() {
                 progressionData={progressionData}
                 loading={loading}
                 dateRange={dateRange}
+                isDrawingMode={isDrawingMode}
               />
             </div>
             
@@ -455,15 +505,17 @@ export default function WeeklyReport() {
           </div>
           
           {/* Saved Notes Display */}
-          <SavedNotesList 
-            savedNotes={savedNotes}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
-            onDeleteNote={handleDeleteNote}
-            onViewFullNote={handleViewFullNote}
-            formatDate={formatDate}
-            getSortedNotes={getSortedNotes}
-          />
+          <div className="w-full mt-6">
+            <SavedNotesList 
+              savedNotes={savedNotes}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+              onDeleteNote={handleDeleteNote}
+              onViewFullNote={handleViewFullNote}
+              formatDate={formatDate}
+              getSortedNotes={getSortedNotes}
+            />
+          </div>
         </div>
       </div>
 

@@ -6,7 +6,12 @@ export default function DraftTimer({ currentStep, draftFinished, draftSteps, tim
   return (
     <>
       <div className="middle-text text-2xl font-bold text-white">
-        {draftFinished ? 'Draft Finished' : draftSteps[currentStep]?.type === 'ban' ? 'Ban' : draftSteps[currentStep]?.type === 'pick' ? 'Pick' : 'Ready'}
+        {draftFinished ? 'Draft Finished' : 
+         draftSteps[currentStep]?.type === 'ban' ? 
+           `${draftSteps[currentStep]?.team === 'blue' ? 'Blue' : 'Red'} Team Ban` : 
+         draftSteps[currentStep]?.type === 'pick' ? 
+           `${draftSteps[currentStep]?.team === 'blue' ? 'Blue' : 'Red'} Team Pick` : 
+         'Ready'}
       </div>
       {!draftFinished && <div id="timer" className="text-lg text-white">{timer}</div>}
     </>

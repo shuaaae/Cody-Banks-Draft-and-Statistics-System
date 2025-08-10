@@ -1,7 +1,7 @@
 import React from 'react';
 import mobaImg from '../../assets/moba1.png';
 
-export default function Header({ isLoggedIn, onLogout, onLoginClick }) {
+export default function Header({ isLoggedIn, onLogout, onLoginClick, onAboutClick }) {
   return (
     <header
       style={{
@@ -56,6 +56,7 @@ export default function Header({ isLoggedIn, onLogout, onLoginClick }) {
           }}
           onMouseEnter={(e) => e.target.style.color = '#FFD600'}
           onMouseLeave={(e) => e.target.style.color = '#fff'}
+          onClick={onAboutClick}
         >
           About Us
         </button>
