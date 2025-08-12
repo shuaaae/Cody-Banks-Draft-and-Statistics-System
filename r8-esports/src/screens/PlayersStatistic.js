@@ -122,7 +122,7 @@ function PlayersStatistic() {
         if (newImageCache[playerIdentifier]) return;
         
         // Try to fetch player photo from server
-        const response = await fetch(`/api/players/photo-by-name?playerName=${encodeURIComponent(player.name)}`, {
+        const response = await fetch(`/public/api/players/photo-by-name?playerName=${encodeURIComponent(player.name)}`, {
           method: 'GET',
         });
         
@@ -184,7 +184,7 @@ function PlayersStatistic() {
           
           // Then fetch fresh data from backend in background
           try {
-            const response = await fetch(`/api/teams/active`);
+            const response = await fetch(`/public/api/teams/active`);
             if (response.ok) {
               const activeTeam = await response.json();
               
@@ -209,7 +209,7 @@ function PlayersStatistic() {
         } else {
           // Try to fetch active team from API
           try {
-            const response = await fetch(`/api/teams/active`);
+            const response = await fetch(`/public/api/teams/active`);
             if (response.ok) {
               const activeTeam = await response.json();
               const teamData = {
@@ -321,7 +321,7 @@ function PlayersStatistic() {
   }, [imageCache, players]);
 
   useEffect(() => {
-    fetch('/api/players')
+    fetch('/public/api/players')
       .then(res => res.json())
       .then(data => {
         setPlayers(data);
@@ -364,8 +364,8 @@ function PlayersStatistic() {
               
               // Fetch both regular stats and H2H stats in parallel
               const [statsRes, h2hRes] = await Promise.all([
-                fetch(`/api/players/${encodeURIComponent(p.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}&role=${encodeURIComponent(p.role)}`),
-                fetch(`/api/players/${encodeURIComponent(p.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}&role=${encodeURIComponent(p.role)}`)
+                fetch(`/public/api/players/${encodeURIComponent(p.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}&role=${encodeURIComponent(p.role)}`),
+                fetch(`/public/api/players/${encodeURIComponent(p.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamPlayers.teamName)}&role=${encodeURIComponent(p.role)}`)
               ]);
               
               const statsData = await statsRes.json();
@@ -489,7 +489,7 @@ function PlayersStatistic() {
         
         if (!cached) {
           fetchPromises.push(
-            fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamName)}&role=${encodeURIComponent(role)}`)
+            fetch(`/public/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-stats-by-team?teamName=${encodeURIComponent(teamName)}&role=${encodeURIComponent(role)}`)
               .then(res => res.json())
               .then(data => setHeroStats(data))
           );
@@ -497,7 +497,7 @@ function PlayersStatistic() {
         
         if (!cachedH2H) {
           fetchPromises.push(
-            fetch(`/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamName)}&role=${encodeURIComponent(role)}`)
+            fetch(`/public/api/players/${encodeURIComponent(modalInfo.player.name)}/hero-h2h-stats-by-team?teamName=${encodeURIComponent(teamName)}&role=${encodeURIComponent(role)}`)
               .then(res => res.json())
               .then(data => setHeroH2HStats(data))
           );
@@ -655,7 +655,7 @@ function PlayersStatistic() {
       formData.append('photo', pendingPhoto.file);
       formData.append('playerName', pendingPhoto.playerName);
       formData.append('playerRole', pendingPhoto.playerRole);
-      const response = await fetch(`/api/players/photo-by-name`, {
+      const response = await fetch(`/public/api/players/photo-by-name`, {
         method: 'POST',
         body: formData,
       });

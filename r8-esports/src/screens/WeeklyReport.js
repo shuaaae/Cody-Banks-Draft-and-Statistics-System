@@ -151,7 +151,7 @@ export default function WeeklyReport() {
   // Function to load notes from database
   const loadNotesFromDatabase = async () => {
     try {
-      const response = await fetch('/api/notes', {
+      const response = await fetch('/public/api/notes', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -176,7 +176,7 @@ export default function WeeklyReport() {
     }
 
     try {
-      const response = await fetch('/api/notes', {
+      const response = await fetch('/public/api/notes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -212,7 +212,7 @@ export default function WeeklyReport() {
   // Function to delete a saved note
   const handleDeleteNote = async (noteId) => {
     try {
-      const response = await fetch(`/api/notes/${noteId}`, {
+      const response = await fetch(`/public/api/notes/${noteId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -282,7 +282,7 @@ export default function WeeklyReport() {
   useEffect(() => {
     if (!startDate || !endDate) return;
     setLoading(true);
-    fetch('/api/matches')
+    fetch('/public/api/matches')
       .then(res => res.json())
       .then(data => {
         console.log('All matches data:', data);
@@ -368,12 +368,12 @@ export default function WeeklyReport() {
         // Store last computed in state for modal use
         setObjectiveRows(turtleRows);
         // Compute analysis helper
-        const makeAnalysis = (rows, respawnsPerMatch = 3) => {
-          const days = new Set(rows.map(r => r.date)).size;
-          const totalTakes = rows.reduce((s, r) => s + r.our, 0);
-          const totalRespawns = rows.length * respawnsPerMatch; // basic assumption from sample
-          const percentage = totalRespawns === 0 ? 0 : (totalTakes / totalRespawns) * 100;
-          return { days, totalRespawns, totalTakes, percentage };
+        const makeAnalysis = (rows) => {
+        const days = new Set(rows.map(r => r.date)).size;
+        const totalTakes = rows.reduce((sum, r) => sum + r.our, 0);
+        const totalRespawns = rows.reduce((sum, r) => sum + r.our + r.opp, 0);
+        const percentage = totalRespawns === 0 ? 0 : (totalTakes / totalRespawns) * 100;
+        return { days, totalRespawns, totalTakes, percentage };
         };
         setObjectiveAnalysis(makeAnalysis(turtleRows));
         // Build weekly history from all matches (not just filtered) using ISO week starting Monday
@@ -396,8 +396,8 @@ export default function WeeklyReport() {
           history[weekKey] = {
             turtleRows: wkTurtle,
             lordRows: wkLord,
-            turtleAnalysis: makeAnalysis(wkTurtle, 3),
-            lordAnalysis: makeAnalysis(wkLord, 2)
+            turtleAnalysis: makeAnalysis(wkTurtle),
+            lordAnalysis: makeAnalysis(wkLord)
           };
         });
         const weekKeys = Object.keys(history).sort();

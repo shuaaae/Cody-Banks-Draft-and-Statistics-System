@@ -143,7 +143,7 @@ export default function HomePage() {
   useEffect(() => {
     const loadHeroes = async () => {
       try {
-        const response = await fetch('/api/heroes');
+        const response = await fetch('/public/api/heroes');
         const data = await response.json();
         setHeroList(data);
       } catch (error) {
@@ -169,7 +169,7 @@ export default function HomePage() {
       const criticalHeroes = heroList.slice(0, 10); // Preload first 10 heroes
       criticalHeroes.forEach(hero => {
         const img = new Image();
-        img.src = `/heroes/${hero.role}/${hero.image.replace('.png', '.webp')}`;
+        img.src = `/public/heroes/${hero.role}/${hero.image.replace('.png', '.webp')}`;
       });
     }
   }, [heroList]);
@@ -387,7 +387,7 @@ export default function HomePage() {
 
     try {
       console.log('Sending payload:', payload); // Debug log
-      const response = await fetch('/api/matches', {
+      const response = await fetch('/public/api/matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -486,7 +486,7 @@ export default function HomePage() {
   // Delete match handler
   async function handleDeleteMatch(matchId) {
     try {
-      const response = await fetch(`/api/matches/${matchId}`, { method: 'DELETE' });
+      const response = await fetch(`/public/api/matches/${matchId}`, { method: 'DELETE' });
       if (response.ok) {
         // Clear cache to ensure fresh data
         clearMatchesCache();

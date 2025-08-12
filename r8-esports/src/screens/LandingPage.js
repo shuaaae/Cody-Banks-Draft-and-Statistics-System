@@ -104,7 +104,7 @@ export default function LandingPage() {
 
     try {
       console.log('Attempting login with:', { email: loginEmail });
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/public/api/auth/login', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -197,7 +197,7 @@ export default function LandingPage() {
   useEffect(() => {
     const testApiConnection = async () => {
       try {
-        const response = await fetch('/api/test');
+        const response = await fetch('/public/api/test');
         if (!response.ok) {
           console.error('API connection failed:', response.status);
         }
@@ -213,7 +213,7 @@ export default function LandingPage() {
   useEffect(() => {
     const loadActiveTeam = async () => {
       try {
-        const response = await fetch('/api/teams/active');
+        const response = await fetch('/public/api/teams/active');
         if (response.ok) {
           const activeTeamData = await response.json();
           setActiveTeam(activeTeamData);
@@ -237,7 +237,7 @@ export default function LandingPage() {
     const fetchTeams = async () => {
       setLoadingTeams(true);
       try {
-        const response = await fetch('/api/teams');
+        const response = await fetch('/public/api/teams');
         if (response.ok) {
           const teamsData = await response.json();
           setTeams(teamsData);
@@ -270,7 +270,7 @@ export default function LandingPage() {
 
   const handleSelectTeam = async (teamId) => {
     try {
-      const response = await fetch('/api/teams/set-active', {
+      const response = await fetch('/public/api/teams/set-active', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -311,7 +311,7 @@ export default function LandingPage() {
         const formData = new FormData();
         formData.append('logo', teamLogoFile);
         
-        const uploadResponse = await fetch('/api/teams/upload-logo', {
+        const uploadResponse = await fetch('/public/api/teams/upload-logo', {
           method: 'POST',
           body: formData,
         });
@@ -327,7 +327,7 @@ export default function LandingPage() {
         console.log('No logo file to upload');
       }
       
-      const response = await fetch('/api/teams', {
+      const response = await fetch('/public/api/teams', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -350,7 +350,7 @@ export default function LandingPage() {
         }
         
         try {
-          const setActiveResponse = await fetch('/api/teams/set-active', {
+          const setActiveResponse = await fetch('/public/api/teams/set-active', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -411,7 +411,7 @@ export default function LandingPage() {
     
     setIsDeletingTeam(true);
     try {
-      const response = await fetch(`/api/teams/${teamToDelete.id}`, {
+      const response = await fetch(`/public/api/teams/${teamToDelete.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

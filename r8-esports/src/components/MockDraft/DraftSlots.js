@@ -109,7 +109,7 @@ export default function DraftSlots({ type, team, heroes = [], size = 'w-12 h-12'
               {hero ? (
                 <>
                   <img
-                    src={`/heroes/${hero.role?.trim().toLowerCase()}/${hero.image}`}
+                    src={`/public/heroes/${hero.role?.trim().toLowerCase()}/${hero.image}`}
                     alt={hero.name}
                     className="w-full h-full object-cover rounded-full"
                     draggable={false}

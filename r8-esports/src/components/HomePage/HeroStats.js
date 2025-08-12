@@ -32,7 +32,7 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
   useEffect(() => {
     const loadHeroes = async () => {
       try {
-        const response = await fetch('/api/heroes');
+        const response = await fetch('/public/api/heroes');
         const data = await response.json();
         setHeroList(data);
       } catch (error) {
@@ -99,7 +99,7 @@ const HeroStats = ({ isOpen, onClose, matches = [] }) => {
     heroList.forEach(hero => {
       stats[hero.name] = {
         hero: hero.name,
-        heroImage: `/heroes/${hero.role}/${hero.image.replace('.png', '.webp')}`,
+        heroImage: `/public/heroes/${hero.role?.trim().toLowerCase()}/${hero.image.replace('.png', '.webp')}`,
         heroRole: hero.role,
         pick: 0,
         ban: 0,

@@ -45,7 +45,7 @@ export default function AdminLogin() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/public/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +185,7 @@ export default function AdminLogin() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-gray-500 text-xs">
-            © 2025 Admin Panel. Secure access only.
+            © 2025 Josua Godalle Admin Panel. Secure access only.
           </p>
         </div>
       </div>

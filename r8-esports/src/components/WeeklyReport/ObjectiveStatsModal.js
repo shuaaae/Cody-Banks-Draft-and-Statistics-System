@@ -1,6 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Bar } from 'react-chartjs-2';
 
+// Utility: format numbers with commas and up to 2 decimals
+const formatNumber = (num) =>
+  num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+// Utility: build the analysis sentence
+const getAnalysisText = (analysis, type) => {
+  const dayLabel = analysis.days === 1 ? "day" : "days";
+  const objectiveName = type === "lord" ? "Lord" : "Turtle";
+  const objectiveLower = objectiveName.toLowerCase();
+  const percent = formatNumber(analysis.percentage);
+
+  return `Based on the data for ${analysis.days} ${dayLabel}, the total number of ${objectiveName} respawns is ${formatNumber(
+    analysis.totalRespawns
+  )}, and the total takes is ${formatNumber(
+    analysis.totalTakes
+  )}. Therefore, our team secured ${percent}% of all ${objectiveLower}s.`;
+};
+
 export default function ObjectiveStatsModal({
   isOpen,
   onClose,
@@ -141,9 +159,9 @@ export default function ObjectiveStatsModal({
             </div>
             <div className="bg-gray-800 rounded-lg p-3">
               <div className="text-yellow-300 font-bold mb-2 text-sm">Analysis</div>
-              <p className="text-gray-200 text-sm">
-                Based on the data for <span className="font-semibold">{analysis.days}</span> days the total number of {type === 'lord' ? 'Lord' : 'Turtle'} respawn is <span className="font-semibold">{analysis.totalRespawns}</span> and the total takes <span className="font-semibold">{analysis.totalTakes}</span> therefore if we are going to get the percentage of all datas we are having a total <span className="font-semibold">{analysis.percentage.toFixed(2)}%</span> of taking {type === 'lord' ? 'lord' : 'turtle'}.
-              </p>
+             <p className="text-gray-200 text-sm">
+            {getAnalysisText(analysis, type)}
+            </p>
             </div>
           </div>
         </div>

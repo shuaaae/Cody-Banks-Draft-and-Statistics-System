@@ -3,7 +3,7 @@ import { FaUsers, FaChartLine, FaTrophy, FaStar } from 'react-icons/fa';
 
 const TeamDisplayCard = ({ teamName }) => {
   return (
-    <div className="relative group mb-12 w-full max-w-4xl mx-auto">
+    <div className="relative group mb-4 w-full max-w-4xl mx-auto">
       {/* Main Glassmorphism Card */}
       <div 
         className="relative flex items-center justify-center px-8 py-6 cursor-pointer transition-all duration-500 transform hover:scale-[1.02] hover:shadow-2xl"

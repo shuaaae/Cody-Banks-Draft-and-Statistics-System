@@ -750,7 +750,7 @@ export default function ExportModal({
                   >
                     <div className="w-16 h-16 rounded-full shadow-lg overflow-hidden flex items-center justify-center mb-2 bg-gradient-to-b from-blue-900 to-blue-700">
                       <img
-                        src={`/heroes/${hero.role?.trim().toLowerCase()}/${hero.image}`}
+                        src={`/public/heroes/${hero.role?.trim().toLowerCase()}/${hero.image}`}
                         alt={hero.name}
                         className="w-full h-full object-cover rounded-full"
                       />
